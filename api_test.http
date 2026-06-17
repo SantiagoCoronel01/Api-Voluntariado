@@ -1,0 +1,30 @@
+@URL = https://web-production-0f156.up.railway.app
+
+###
+# Obtener todos los usuarios
+GET {{URL}}/traer_usuarios
+
+###
+# Crear usuario
+POST {{URL}}/nuevo_usuario
+Content-Type: application/json
+
+{
+    "nombre": "Juan",
+    "apellido": "Perez",
+    "provincia": "Buenos Aires"
+}
+
+
+###
+# Actualizar usuario con id=1
+PUT {{URL}}/actualizar_usuario/1
+Content-Type: application/json
+
+{
+    "nom": "Juan Actualizado"
+}
+
+###
+# Eliminar usuario con id=1
+DELETE {{URL}}/eliminar_usuario/1
