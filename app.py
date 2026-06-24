@@ -22,7 +22,8 @@ mysql = MySQL(app)
 
 CORS(app)
 
-
+#LINEAS DE PRUEBA
+###CREAR USUARIO
 @app.route("/nuevo_usuario", methods=["POST"])
 @cross_origin()
 def insertar_usuario():
@@ -44,6 +45,7 @@ def insertar_usuario():
     response = jsonify({"resultado":"Agregado nuevo usuario"})
     return response
 
+###TRAER USUARIOS
 @app.route("/traer_usuarios", methods=["GET"])
 @cross_origin()
 def listar_jugadores():
@@ -73,9 +75,9 @@ def listar_jugadores():
 
         return jsonify(usuarios)
 
-
+###ELIMINAR USUARIO
 @cross_origin
-@app.route("/eliminar_usuario/<id>", methods=["DELETE"])
+@app.route("/eliminar_usuario_prueba/<id>", methods=["DELETE"])
 def eliminar_usuario(id):
 
     sql = "DELETE FROM Usuarios WHERE idUsuarios=%s"
@@ -94,9 +96,9 @@ def eliminar_usuario(id):
     response = jsonify({"resultado":"Usuario eliminado"})
     return response
 
-
+###ACTUALIZAR USUARIO
 @cross_origin
-@app.route("/actualizar_usuario/<id>", methods=["PUT"])
+@app.route("/actualizar_usuario_prueba/<id>", methods=["PUT"])
 def actualizar_usuario(id):
     nombre = request.json["nom"]
 
@@ -116,6 +118,70 @@ def actualizar_usuario(id):
     return response
 
 
+#####################################################################
+#######################LINEAS VOLUNTARIADO###########################
+
+
+#AGREGAR USUARIOS
+@app.route("/nuevo_usuario_voluntariado", methods=["POST"])
+@cross_origin()
+def insertar_usuario_voluntariado():
+    nombre = request.json["nombre"]
+    mail = request.json["mail"]
+    clave = request.json["clave"]
+    perfil = request.json["perfil"]
+
+
+    cursor = mysql.connection.cursor()
+
+    sql = "INSERT INTO Usuarios(nombre, mail, clave, perfil) values(%s, %s, %s, %s);"
+    cursor.execute(sql, (nombre, mail, clave, perfil))
+
+
+    mysql.connection.commit()
+
+    cursor.close()
+    response = make_response()
+
+    response = jsonify({"resultado":"Agregado nuevo usuario"})
+    return response
+
+###TRAER USUARIOS
+@app.route("/traer_usuarios_voluntariado", methods=["GET"])
+@cross_origin()
+def listar_usuarios_voluntariado():
+    #consulta SQL
+    sql = "SELECT idusuario, nombre, mail, mail, clave, perfil FROM usuario"
+
+    #crear el cursor
+    cursor = mysql.connection.cursor()#mysql.connect.cursor()
+    cursor.execute(sql)
+
+    resultado = cursor.fetchall()
+
+    #cerrar la conexión
+    cursor.close()
+    response = make_response()
+
+    if resultado == None:
+        response = jsonify({"mensaje":None})
+        return response
+    else:
+        usuarios = []
+
+        for i in resultado:
+
+            p = {"idusuario":i[0], "nombre":i[1], "mail":i[2], "clave":i[3], "clave":i[4]}
+            usuarios.append(p)
+
+        return jsonify(usuarios)
+
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+    
+
+
+

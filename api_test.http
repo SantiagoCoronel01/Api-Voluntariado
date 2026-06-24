@@ -18,7 +18,7 @@ Content-Type: application/json
 
 ###
 # Actualizar usuario con id=1
-PUT {{URL}}/actualizar_usuario/1
+PUT {{URL}}/actualizar_usuario_prueba/1
 Content-Type: application/json
 
 {
@@ -27,4 +27,28 @@ Content-Type: application/json
 
 ###
 # Eliminar usuario con id=1
-DELETE {{URL}}/eliminar_usuario/1
+DELETE {{URL}}/eliminar_usuario_prueba/3
+
+
+
+
+
+
+#####################################################################
+####################### LINEAS VOLUNTARIADO ###########################
+
+###
+# Obtener todos los usuarios
+GET {{URL}}/traer_usuarios_voluntariado
+
+###
+# Crear usuario
+POST {{URL}}/nuevo_usuario_voluntariado
+Content-Type: application/json
+
+{
+    "nombre": "Santiago",
+    "mail": "santiago.coronel@sagradoalcal.edu.ar",
+    "clave": "Voluntario01",
+    "perfil": "Referente"
+}
