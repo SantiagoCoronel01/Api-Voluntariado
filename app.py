@@ -134,7 +134,7 @@ def insertar_usuario_voluntariado():
 
     cursor = mysql.connection.cursor()
 
-    sql = "INSERT INTO Usuarios(nombre, mail, clave, perfil) values(%s, %s, %s, %s);"
+    sql = "INSERT INTO usuario(nombre, mail, clave, perfil) values(%s, %s, %s, %s);"
     cursor.execute(sql, (nombre, mail, clave, perfil))
 
 
