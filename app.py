@@ -284,7 +284,45 @@ def insertar_anuncio():
     return jsonify({"resultado":"Anuncio agregado"})
 
 ############################TRAER ANUNCIOS#########################
+@app.route("/traer_anuncios", methods=["GET"])
+@cross_origin()
+def listar_anuncios():
 
+    sql = """
+    SELECT
+    idAnuncios,
+    Titulo,
+    Descripción,
+    Img,
+    Fecha_creado,
+    Fecha_evento,
+    tipo_evento,
+    usuario_idusuario
+    FROM Anuncios
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql)
+
+    resultado = cursor.fetchall()
+    cursor.close()
+
+    anuncios = []
+
+    for i in resultado:
+
+        anuncios.append({
+            "id": i[0],
+            "titulo": i[1],
+            "descripcion": i[2],
+            "img": i[3],
+            "fecha_creado": i[4],
+            "fecha_evento": i[5],
+            "tipo_evento": i[6],
+            "usuario": i[7]
+        })
+
+    return jsonify(anuncios)
 
 
 
