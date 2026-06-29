@@ -34,8 +34,11 @@ DELETE {{URL}}/eliminar_usuario_prueba/3
 
 
 
-#####################################################################
-####################### LINEAS VOLUNTARIADO ###########################
+########################################################################
+####################### LINEAS VOLUNTARIADO ############################
+
+
+#######################  GESTION USUARIOS   ############################
 
 ###
 # Obtener todos los usuarios
@@ -54,14 +57,20 @@ Content-Type: application/json
 }
 
 ###
-# Actualizar usuario con id=1
-PUT {{URL}}/actualizar_usuario_voluntariado/1
+# Actualizar usuario con id
+PUT {{URL}}/actualizar_usuario_voluntariado/2
 Content-Type: application/json
 
 {
-    "nom": "Juan Actualizado"
+    "nombre": "Juan Actualizado",
+    "mail": "Juan@sagradoalcal.edu.ar",
+    "perfil": "volountario",
+    "clave": "volountario"
 }
 
 ###
-# Eliminar usuario con id=1
-DELETE {{URL}}/eliminar_usuario_voluntariado/3
+# Eliminar usuario con id
+DELETE {{URL}}/eliminar_usuario_voluntariado/2
+
+#######################  GESTION DESTINATARIOS  ############################
+

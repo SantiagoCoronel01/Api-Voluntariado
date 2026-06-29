@@ -126,81 +126,90 @@ def actualizar_usuario(id):
 @app.route("/nuevo_usuario_voluntariado", methods=["POST"])
 @cross_origin()
 def insertar_usuario_voluntariado():
+
     nombre = request.json["nombre"]
     mail = request.json["mail"]
     clave = request.json["clave"]
     perfil = request.json["perfil"]
 
-
     cursor = mysql.connection.cursor()
 
-    sql = "INSERT INTO usuario(nombre, mail, clave, perfil) values(%s, %s, %s, %s);"
+    sql = """
+    INSERT INTO usuario(nombre, mail, clave, perfil, activo)
+    VALUES (%s, %s, %s, %s, 0)
+    """
+
     cursor.execute(sql, (nombre, mail, clave, perfil))
 
-
     mysql.connection.commit()
-
     cursor.close()
-    response = make_response()
 
-    response = jsonify({"resultado":"Agregado nuevo usuario"})
-    return response
+    return jsonify({"resultado": "Usuario registrado. Pendiente de activación."})
 
 ###TRAER USUARIOS
 @app.route("/traer_usuarios_voluntariado", methods=["GET"])
 @cross_origin()
 def listar_usuarios_voluntariado():
-    #consulta SQL
-    sql = "SELECT idusuario, nombre, mail, clave, perfil FROM usuario"
 
-    #crear el cursor
-    cursor = mysql.connection.cursor()#mysql.connect.cursor()
+    sql = """
+    SELECT idusuario, nombre, mail, clave, perfil, activo
+    FROM usuario
+    """
+
+    cursor = mysql.connection.cursor()
     cursor.execute(sql)
 
     resultado = cursor.fetchall()
-
-    #cerrar la conexión
     cursor.close()
-    response = make_response()
 
-    if resultado == None:
-        response = jsonify({"mensaje":None})
-        return response
-    else:
-        usuarios = []
+    if resultado is None:
+        return jsonify({"mensaje": None})
 
-        for i in resultado:
+    usuarios = []
 
-            p = {"idusuario":i[0], "nombre":i[1], "mail":i[2], "clave":i[3], "perfil":i[4]}
-            usuarios.append(p)
+    for i in resultado:
+        usuarios.append({
+            "idusuario": i[0],
+            "nombre": i[1],
+            "mail": i[2],
+            "clave": i[3],
+            "perfil": i[4],
+            "activo": i[5]
+        })
 
-        return jsonify(usuarios)
+    return jsonify(usuarios)
 
 ###ELIMINAR USUARIO
-@cross_origin
-@app.route("/eliminar_usuario_voluntariado/<id>", methods=["DELETE"])
-def eliminar_usuario_voluntariado(id):
+@app.route("/desactivar_usuario/<id>", methods=["PUT"])
+@cross_origin()
+def desactivar_usuario(id):
 
-    sql = "DELETE FROM usuario WHERE idusuario=%s"
+    sql = "UPDATE usuario SET activo = 0 WHERE idusuario = %s"
 
-    #crear el cursor
     cursor = mysql.connection.cursor()
     cursor.execute(sql, (id,))
-
     mysql.connection.commit()
-
-    #cerrar la conexión
     cursor.close()
-    response = make_response()
 
+    return jsonify({"resultado": "Usuario desactivado"})
 
-    response = jsonify({"resultado":"Usuario eliminado"})
-    return response
+### ACTIVAR USUARIO
+@app.route("/activar_usuario/<id>", methods=["PUT"])
+@cross_origin()
+def activar_usuario(id):
 
+    sql = "UPDATE usuario SET activo = 1 WHERE idusuario = %s"
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (id,))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Usuario activado"})
 
 ### ACTUALIZAR USUARIO
-@cross_origin()
 @app.route("/actualizar_usuario_voluntariado/<id>", methods=["PUT"])
+@cross_origin()
 def actualizar_usuario_voluntariado(id):
 
     datos = request.json
@@ -224,11 +233,11 @@ def actualizar_usuario_voluntariado(id):
         campos.append("perfil=%s")
         valores.append(datos["perfil"])
 
-    # Si no vino ningún dato
     if len(campos) == 0:
         return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
 
     sql = f"UPDATE usuario SET {', '.join(campos)} WHERE idusuario=%s"
+
     valores.append(id)
 
     cursor = mysql.connection.cursor()
