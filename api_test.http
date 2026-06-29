@@ -52,3 +52,16 @@ Content-Type: application/json
     "clave": "Voluntario01",
     "perfil": "Referente"
 }
+
+###
+# Actualizar usuario con id=1
+PUT {{URL}}/actualizar_usuario_voluntariado/1
+Content-Type: application/json
+
+{
+    "nom": "Juan Actualizado"
+}
+
+###
+# Eliminar usuario con id=1
+DELETE {{URL}}/eliminar_usuario_voluntariado/3

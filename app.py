@@ -121,7 +121,7 @@ def actualizar_usuario(id):
 #####################################################################
 #######################LINEAS VOLUNTARIADO###########################
 
-
+#######################GESTION USUARIOS##############################
 #AGREGAR USUARIOS
 @app.route("/nuevo_usuario_voluntariado", methods=["POST"])
 @cross_origin()
@@ -151,7 +151,7 @@ def insertar_usuario_voluntariado():
 @cross_origin()
 def listar_usuarios_voluntariado():
     #consulta SQL
-    sql = "SELECT idusuario, nombre, mail, mail, clave, perfil FROM usuario"
+    sql = "SELECT idusuario, nombre, mail, clave, perfil FROM usuario"
 
     #crear el cursor
     cursor = mysql.connection.cursor()#mysql.connect.cursor()
@@ -171,12 +171,72 @@ def listar_usuarios_voluntariado():
 
         for i in resultado:
 
-            p = {"idusuario":i[0], "nombre":i[1], "mail":i[2], "clave":i[3], "clave":i[4]}
+            p = {"idusuario":i[0], "nombre":i[1], "mail":i[2], "clave":i[3], "perfil":i[4]}
             usuarios.append(p)
 
         return jsonify(usuarios)
 
+###ELIMINAR USUARIO
+@cross_origin
+@app.route("/eliminar_usuario_voluntariado/<id>", methods=["DELETE"])
+def eliminar_usuario_voluntariado(id):
 
+    sql = "DELETE FROM usuario WHERE idusuario=%s"
+
+    #crear el cursor
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (id,))
+
+    mysql.connection.commit()
+
+    #cerrar la conexión
+    cursor.close()
+    response = make_response()
+
+
+    response = jsonify({"resultado":"Usuario eliminado"})
+    return response
+
+
+### ACTUALIZAR USUARIO
+@cross_origin()
+@app.route("/actualizar_usuario_voluntariado/<id>", methods=["PUT"])
+def actualizar_usuario_voluntariado(id):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "nombre" in datos:
+        campos.append("nombre=%s")
+        valores.append(datos["nombre"])
+
+    if "mail" in datos:
+        campos.append("mail=%s")
+        valores.append(datos["mail"])
+
+    if "clave" in datos:
+        campos.append("clave=%s")
+        valores.append(datos["clave"])
+
+    if "perfil" in datos:
+        campos.append("perfil=%s")
+        valores.append(datos["perfil"])
+
+    # Si no vino ningún dato
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"UPDATE usuario SET {', '.join(campos)} WHERE idusuario=%s"
+    valores.append(id)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Usuario actualizado correctamente"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
