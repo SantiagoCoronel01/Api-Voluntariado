@@ -247,6 +247,47 @@ def actualizar_usuario_voluntariado(id):
 
     return jsonify({"resultado": "Usuario actualizado correctamente"})
 
+####################### GESTION ANUNCIOS ##############################
+
+##################CREAR ANUNCIO######################
+@app.route("/nuevo_anuncio", methods=["POST"])
+@cross_origin()
+def insertar_anuncio():
+
+    titulo = request.json["titulo"]
+    descripcion = request.json["descripcion"]
+    img = request.json["img"]
+    fecha_evento = request.json["fecha_evento"]
+    tipo_evento = request.json["tipo_evento"]
+    usuario = request.json["usuario"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    INSERT INTO Anuncios
+    (Titulo, Descripción, Img, Fecha_evento, tipo_evento, usuario_idusuario)
+    VALUES (%s,%s,%s,%s,%s,%s)
+    """
+
+    cursor.execute(sql, (
+        titulo,
+        descripcion,
+        img,
+        fecha_evento,
+        tipo_evento,
+        usuario
+    ))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado":"Anuncio agregado"})
+
+############################TRAER ANUNCIOS#########################
+
+
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

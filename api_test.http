@@ -72,5 +72,27 @@ Content-Type: application/json
 # Eliminar usuario con id
 DELETE {{URL}}/eliminar_usuario_voluntariado/2
 
-#######################  GESTION DESTINATARIOS  ############################
+###
+# Activar usuario
+PUT {{URL}}/activar_usuario/1
 
+
+#######################  GESTION ANUNCIOS ############################
+
+###
+# Crear anuncio
+POST {{URL}}/nuevo_anuncio
+Content-Type: application/json
+
+{
+    "titulo":"Colecta de ropa",
+    "descripcion":"Traer ropa de invierno",
+    "img":"ropa.jpg",
+    "fecha_evento":"2026-07-20 15:00:00",
+    "tipo_evento":"Solidario",
+    "usuario":1
+}
+
+###
+# Traer anuncios
+GET {{URL}}/traer_anuncios
