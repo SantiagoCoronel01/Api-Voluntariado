@@ -299,7 +299,7 @@ def listar_anuncios():
     fecha_evento,
     tipo_evento,
     usuario_idusuario
-    FROM Anuncios
+    FROM anuncios
     """
 
     cursor = mysql.connection.cursor()
