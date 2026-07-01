@@ -249,7 +249,8 @@ def actualizar_usuario_voluntariado(id):
 
 ####################### GESTION ANUNCIOS ##############################
 
-##################CREAR ANUNCIO######################
+################## CREAR ANUNCIO ######################
+
 @app.route("/nuevo_anuncio", methods=["POST"])
 @cross_origin()
 def insertar_anuncio():
@@ -265,8 +266,8 @@ def insertar_anuncio():
 
     sql = """
     INSERT INTO Anuncios
-    (Titulo, Descripción, Img, Fecha_evento, tipo_evento, usuario_idusuario)
-    VALUES (%s,%s,%s,%s,%s,%s)
+    (titulo, descripcion, img, fecha_evento, tipo_evento, usuario_idusuario)
+    VALUES (%s, %s, %s, %s, %s, %s)
     """
 
     cursor.execute(sql, (
@@ -281,7 +282,7 @@ def insertar_anuncio():
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado":"Anuncio agregado"})
+    return jsonify({"resultado": "Anuncio agregado"})
 
 ############################TRAER ANUNCIOS#########################
 @app.route("/traer_anuncios", methods=["GET"])
@@ -291,11 +292,11 @@ def listar_anuncios():
     sql = """
     SELECT
     idAnuncios,
-    Titulo,
-    Descripción,
-    Img,
-    Fecha_creado,
-    Fecha_evento,
+    titulo,
+    descripcion,
+    img,
+    fecha_creado,
+    fecha_evento,
     tipo_evento,
     usuario_idusuario
     FROM Anuncios
@@ -312,7 +313,7 @@ def listar_anuncios():
     for i in resultado:
 
         anuncios.append({
-            "id": i[0],
+            "idAnuncios": i[0],
             "titulo": i[1],
             "descripcion": i[2],
             "img": i[3],
