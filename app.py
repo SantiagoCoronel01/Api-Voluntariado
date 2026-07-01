@@ -265,7 +265,7 @@ def insertar_anuncio():
     cursor = mysql.connection.cursor()
 
     sql = """
-    INSERT INTO Anuncios
+    INSERT INTO anuncios
     (titulo, descripcion, img, fecha_evento, tipo_evento, usuario_idusuario)
     VALUES (%s, %s, %s, %s, %s, %s)
     """
