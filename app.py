@@ -599,6 +599,8 @@ def traer_destinatarios():
             "quien_vive": i[10],
             "condicion_salud": i[11]
         })
+        
+        return jsonify(destinatarios)
 
 ############################ ACTUALIZAR DESTINATARIO ############################
 

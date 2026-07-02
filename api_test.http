@@ -145,7 +145,6 @@ DELETE {{URL}}/eliminar_objeto/1
 ####################### GESTIÓN DESTINATARIOS ###########################
 
 ###
-
 # Registrar destinatario
 
 POST {{URL}}/nuevo_destinatario
