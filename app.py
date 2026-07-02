@@ -385,6 +385,111 @@ def eliminar_anuncio(id):
 
     return jsonify({"resultado": "Anuncio eliminado correctamente"})
 
+####################### GESTION INVENTARIO ##############################
+
+############################ AÑADIR OBJETO ############################
+
+@app.route("/nuevo_objeto", methods=["POST"])
+@cross_origin()
+def añadir_objeto():
+
+    nombre = request.json["nombre"]
+    cantidad = request.json["cantidad"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    INSERT INTO inventario(nombre, cantidad)
+    VALUES (%s, %s)
+    """
+
+    cursor.execute(sql, (nombre, cantidad))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Objeto agregado al inventario"})
+
+############################ TRAER INVENTARIO ############################
+
+@app.route("/traer_inventario", methods=["GET"])
+@cross_origin()
+def traer_inventario():
+
+    sql = """
+    SELECT
+    idRegistro_objetos,
+    nombre,
+    cantidad
+    FROM inventario
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql)
+
+    resultado = cursor.fetchall()
+    cursor.close()
+
+    inventario = []
+
+    for i in resultado:
+
+        inventario.append({
+            "idRegistro_objetos": i[0],
+            "nombre": i[1],
+            "cantidad": i[2]
+        })
+
+    return jsonify(inventario)
+
+############################ ACTUALIZAR OBJETO ############################
+
+@app.route("/actualizar_objeto/<int:id>", methods=["PUT"])
+@cross_origin()
+def actualizar_objeto(id):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "nombre" in datos:
+        campos.append("nombre=%s")
+        valores.append(datos["nombre"])
+
+    if "cantidad" in datos:
+        campos.append("cantidad=%s")
+        valores.append(datos["cantidad"])
+
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"UPDATE inventario SET {', '.join(campos)} WHERE idRegistro_objetos=%s"
+
+    valores.append(id)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Objeto actualizado correctamente"})
+
+############################ ELIMINAR OBJETO ############################
+
+@app.route("/eliminar_objeto/<int:id>", methods=["DELETE"])
+@cross_origin()
+def eliminar_objeto(id):
+
+    sql = "DELETE FROM inventario WHERE idRegistro_objetos=%s"
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (id,))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Objeto eliminado correctamente"})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

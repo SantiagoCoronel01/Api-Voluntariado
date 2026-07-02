@@ -71,8 +71,7 @@ DELETE {{URL}}/eliminar_usuario_voluntariado/2
 # Activar usuario
 PUT {{URL}}/activar_usuario/1
 
-
-#######################  GESTION ANUNCIOS############################
+#######################  GESTION ANUNCIOS ############################
 
 ###
 # Traer anuncios
@@ -87,7 +86,7 @@ Content-Type: application/json
     "titulo": "Colecta de ropa",
     "descripcion": "Traer ropa de invierno",
     "img": "ropa.jpg",
-    "fecha_evento": "2026-07-20 15:00:00",
+    "fecha_evento": "2026-07-20 17:00:00",
     "tipo_evento": "Solidario",
     "usuario": 1
 }
@@ -106,4 +105,38 @@ Content-Type: application/json
 ###
 # Eliminar anuncio
 
-DELETE {{URL}}/eliminar_anuncio/1
+DELETE {{URL}}/eliminar_anuncio/2
+
+########################################################################
+####################### GESTIÓN INVENTARIO ##############################
+
+###
+# Añadir objeto
+
+POST {{URL}}/nuevo_objeto
+Content-Type: application/json
+
+{
+    "nombre": "Leche",
+    "cantidad": 20
+}
+
+###
+# Traer inventario
+
+GET {{URL}}/traer_inventario
+
+###
+# Actualizar objeto
+
+PUT {{URL}}/actualizar_objeto/1
+Content-Type: application/json
+
+{
+    "cantidad": 30
+}
+
+###
+# Eliminar objeto
+
+DELETE {{URL}}/eliminar_objeto/1
