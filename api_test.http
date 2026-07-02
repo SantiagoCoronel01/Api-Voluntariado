@@ -140,3 +140,49 @@ Content-Type: application/json
 # Eliminar objeto
 
 DELETE {{URL}}/eliminar_objeto/1
+
+########################################################################
+####################### GESTIÓN DESTINATARIOS ###########################
+
+###
+
+# Registrar destinatario
+
+POST {{URL}}/nuevo_destinatario
+Content-Type: application/json
+{
+    "nombres": "Juan",
+    "apellidos": "Pérez",
+    "dni": 45111222,
+    "fecha_nacimiento": "2015-08-12",
+    "domicilio": "Calle 123",
+    "escuela_anio": "4°",
+    "retirar_solo": 0,
+    "adulto_responsable_uno": "María Pérez",
+    "adulto_responsable_dos": "Carlos Pérez",
+    "personas_autorizadas_retiro": "Ana Gómez",
+    "quien_vive": "Padres",
+    "condicion_salud": "Ninguna"
+}
+
+###
+# Traer destinatarios
+
+GET {{URL}}/traer_destinatarios
+
+###
+# Actualizar destinatario
+
+PUT {{URL}}/actualizar_destinatario/45111222
+Content-Type: application/json
+
+{
+    "domicilio": "Calle 456",
+    "escuela_anio": "5°",
+    "retirar_solo": 1
+}
+
+###
+# Eliminar destinatario
+
+DELETE {{URL}}/eliminar_destinatario/45111222

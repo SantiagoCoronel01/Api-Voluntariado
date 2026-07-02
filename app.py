@@ -490,6 +490,203 @@ def eliminar_objeto(id):
 
     return jsonify({"resultado": "Objeto eliminado correctamente"})
 
+####################### GESTION DESTINATARIOS##############################
+
+############################ REGISTRAR DESTINATARIO ############################
+
+@app.route("/nuevo_destinatario", methods=["POST"])
+@cross_origin()
+def registrar_destinatario():
+
+    nombres = request.json["nombres"]
+    apellidos = request.json["apellidos"]
+    dni = request.json["dni"]
+    fecha_nacimiento = request.json["fecha_nacimiento"]
+    domicilio = request.json["domicilio"]
+    escuela_anio = request.json["escuela_anio"]
+    retirar_solo = request.json["retirar_solo"]
+    adulto_responsable_uno = request.json["adulto_responsable_uno"]
+    adulto_responsable_dos = request.json["adulto_responsable_dos"]
+    personas_autorizadas_retiro = request.json["personas_autorizadas_retiro"]
+    quien_vive = request.json["quien_vive"]
+    condicion_salud = request.json["condicion_salud"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    INSERT INTO destinatarios
+    (
+        nombres,
+        apellidos,
+        dni,
+        fecha_nacimiento,
+        domicilio,
+        escuela_anio,
+        retirar_solo,
+        adulto_responsable_uno,
+        adulto_responsable_dos,
+        personas_autorizadas_retiro,
+        quien_vive,
+        condicion_salud
+    )
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """
+
+    cursor.execute(sql, (
+        nombres,
+        apellidos,
+        dni,
+        fecha_nacimiento,
+        domicilio,
+        escuela_anio,
+        retirar_solo,
+        adulto_responsable_uno,
+        adulto_responsable_dos,
+        personas_autorizadas_retiro,
+        quien_vive,
+        condicion_salud
+    ))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Destinatario registrado"})
+
+############################ TRAER DESTINATARIOS ############################
+
+@app.route("/traer_destinatarios", methods=["GET"])
+@cross_origin()
+def traer_destinatarios():
+
+    sql = """
+    SELECT
+        nombres,
+        apellidos,
+        dni,
+        fecha_nacimiento,
+        domicilio,
+        escuela_anio,
+        retirar_solo,
+        adulto_responsable_uno,
+        adulto_responsable_dos,
+        personas_autorizadas_retiro,
+        quien_vive,
+        condicion_salud
+    FROM destinatarios
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql)
+
+    resultado = cursor.fetchall()
+    cursor.close()
+
+    destinatarios = []
+
+    for i in resultado:
+
+        destinatarios.append({
+            "nombres": i[0],
+            "apellidos": i[1],
+            "dni": i[2],
+            "fecha_nacimiento": i[3],
+            "domicilio": i[4],
+            "escuela_anio": i[5],
+            "retirar_solo": i[6],
+            "adulto_responsable_uno": i[7],
+            "adulto_responsable_dos": i[8],
+            "personas_autorizadas_retiro": i[9],
+            "quien_vive": i[10],
+            "condicion_salud": i[11]
+        })
+
+############################ ACTUALIZAR DESTINATARIO ############################
+
+@app.route("/actualizar_destinatario/<int:dni>", methods=["PUT"])
+@cross_origin()
+def actualizar_destinatario(dni):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "nombres" in datos:
+        campos.append("nombres=%s")
+        valores.append(datos["nombres"])
+
+    if "apellidos" in datos:
+        campos.append("apellidos=%s")
+        valores.append(datos["apellidos"])
+
+    if "fecha_nacimiento" in datos:
+        campos.append("fecha_nacimiento=%s")
+        valores.append(datos["fecha_nacimiento"])
+
+    if "domicilio" in datos:
+        campos.append("domicilio=%s")
+        valores.append(datos["domicilio"])
+
+    if "escuela_anio" in datos:
+        campos.append("escuela_anio=%s")
+        valores.append(datos["escuela_anio"])
+
+    if "retirar_solo" in datos:
+        campos.append("retirar_solo=%s")
+        valores.append(datos["retirar_solo"])
+
+    if "adulto_responsable_uno" in datos:
+        campos.append("adulto_responsable_uno=%s")
+        valores.append(datos["adulto_responsable_uno"])
+
+    if "adulto_responsable_dos" in datos:
+        campos.append("adulto_responsable_dos=%s")
+        valores.append(datos["adulto_responsable_dos"])
+
+    if "personas_autorizadas_retiro" in datos:
+        campos.append("personas_autorizadas_retiro=%s")
+        valores.append(datos["personas_autorizadas_retiro"])
+
+    if "quien_vive" in datos:
+        campos.append("quien_vive=%s")
+        valores.append(datos["quien_vive"])
+
+    if "condicion_salud" in datos:
+        campos.append("condicion_salud=%s")
+        valores.append(datos["condicion_salud"])
+
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"UPDATE destinatarios SET {', '.join(campos)} WHERE dni=%s"
+
+    valores.append(dni)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Destinatario actualizado correctamente"})
+
+  
+############################ ELIMINAR DESTINATARIO ############################
+
+@app.route("/eliminar_destinatario/<int:dni>", methods=["DELETE"])
+@cross_origin()
+def eliminar_destinatario(dni):
+
+    sql = "DELETE FROM destinatarios WHERE dni=%s"
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (dni,))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Destinatario eliminado correctamente"})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
