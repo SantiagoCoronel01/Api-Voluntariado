@@ -325,7 +325,65 @@ def listar_anuncios():
 
     return jsonify(anuncios)
 
+############################ ACTUALIZAR ANUNCIO ############################
 
+@app.route("/actualizar_anuncio/<int:id>", methods=["PUT"])
+@cross_origin()
+def actualizar_anuncio(id):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "titulo" in datos:
+        campos.append("titulo=%s")
+        valores.append(datos["titulo"])
+
+    if "descripcion" in datos:
+        campos.append("descripcion=%s")
+        valores.append(datos["descripcion"])
+
+    if "img" in datos:
+        campos.append("img=%s")
+        valores.append(datos["img"])
+
+    if "fecha_evento" in datos:
+        campos.append("fecha_evento=%s")
+        valores.append(datos["fecha_evento"])
+
+    if "tipo_evento" in datos:
+        campos.append("tipo_evento=%s")
+        valores.append(datos["tipo_evento"])
+
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"UPDATE anuncios SET {', '.join(campos)} WHERE idAnuncios=%s"
+
+    valores.append(id)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Anuncio actualizado correctamente"})
+
+############################ ELIMINAR ANUNCIO ############################
+
+@app.route("/eliminar_anuncio/<int:id>", methods=["DELETE"])
+@cross_origin()
+def eliminar_anuncio(id):
+
+    sql = "DELETE FROM anuncios WHERE idAnuncios=%s"
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (id,))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Anuncio eliminado correctamente"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

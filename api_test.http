@@ -29,11 +29,6 @@ Content-Type: application/json
 # Eliminar usuario con id=1
 DELETE {{URL}}/eliminar_usuario_prueba/3
 
-
-
-
-
-
 ########################################################################
 ####################### LINEAS VOLUNTARIADO ############################
 
@@ -77,7 +72,11 @@ DELETE {{URL}}/eliminar_usuario_voluntariado/2
 PUT {{URL}}/activar_usuario/1
 
 
-#######################  GESTION ANUNCIOS ############################
+#######################  GESTION ANUNCIOS############################
+
+###
+# Traer anuncios
+GET {{URL}}/traer_anuncios
 
 ###
 # Crear anuncio
@@ -93,7 +92,18 @@ Content-Type: application/json
     "usuario": 1
 }
 
+###
+# Actualizar anuncio
+
+PUT {{URL}}/actualizar_anuncio/1
+Content-Type: application/json
+
+{
+    "titulo": "Colecta de alimentos",
+    "descripcion": "Traer alimentos no perecederos"
+}
 
 ###
-# Traer anuncios
-GET {{URL}}/traer_anuncios
+# Eliminar anuncio
+
+DELETE {{URL}}/eliminar_anuncio/1
