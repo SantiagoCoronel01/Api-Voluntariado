@@ -584,7 +584,7 @@ def traer_destinatarios():
     destinatarios = []
 
     for i in resultado:
-
+    
         destinatarios.append({
             "nombres": i[0],
             "apellidos": i[1],
@@ -599,8 +599,8 @@ def traer_destinatarios():
             "quien_vive": i[10],
             "condicion_salud": i[11]
         })
-        
-        return jsonify(destinatarios)
+    
+    return jsonify(destinatarios)
 
 ############################ ACTUALIZAR DESTINATARIO ############################
 
