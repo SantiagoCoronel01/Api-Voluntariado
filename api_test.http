@@ -1,11 +1,17 @@
 @URL = https://web-production-5d34.up.railway.app
 
+########################################################################
+########################### PRUEBAS ####################################
+########################################################################
+
 ###
-# Obtener todos los usuarios
+# Obtener usuarios de prueba
+
 GET {{URL}}/traer_usuarios
 
 ###
-# Crear usuario
+# Crear usuario de prueba
+
 POST {{URL}}/nuevo_usuario
 Content-Type: application/json
 
@@ -15,9 +21,9 @@ Content-Type: application/json
     "provincia": "Buenos Aires"
 }
 
-
 ###
-# Actualizar usuario con id=1
+# Actualizar usuario de prueba
+
 PUT {{URL}}/actualizar_usuario_prueba/1
 Content-Type: application/json
 
@@ -26,21 +32,22 @@ Content-Type: application/json
 }
 
 ###
-# Eliminar usuario con id=1
-DELETE {{URL}}/eliminar_usuario_prueba/3
+# Eliminar usuario de prueba
+
+DELETE {{URL}}/eliminar_usuario_prueba/1
 
 ########################################################################
-####################### LINEAS VOLUNTARIADO ############################
-
-
-#######################  GESTION USUARIOS   ############################
+###################### GESTIÓN USUARIOS ################################
+########################################################################
 
 ###
-# Obtener todos los usuarios
+# Traer usuarios
+
 GET {{URL}}/traer_usuarios_voluntariado
 
 ###
 # Crear usuario
+
 POST {{URL}}/nuevo_usuario_voluntariado
 Content-Type: application/json
 
@@ -52,33 +59,40 @@ Content-Type: application/json
 }
 
 ###
-# Actualizar usuario con id
+# Actualizar usuario
+
 PUT {{URL}}/actualizar_usuario_voluntariado/2
 Content-Type: application/json
 
 {
     "nombre": "Juan Actualizado",
-    "mail": "Juan@sagradoalcal.edu.ar",
-    "perfil": "volountario",
-    "clave": "volountario"
+    "mail": "juan@sagradoalcal.edu.ar",
+    "perfil": "Voluntario",
+    "clave": "Voluntario123"
 }
 
 ###
-# Eliminar usuario con id
-DELETE {{URL}}/eliminar_usuario_voluntariado/2
+# Activar usuario
+
+PUT {{URL}}/activar_usuario/2
 
 ###
-# Activar usuario
-PUT {{URL}}/activar_usuario/1
+# Desactivar usuario
 
-#######################  GESTION ANUNCIOS ############################
+PUT {{URL}}/desactivar_usuario/2
+
+########################################################################
+######################## GESTIÓN ANUNCIOS ##############################
+########################################################################
 
 ###
 # Traer anuncios
+
 GET {{URL}}/traer_anuncios
 
 ###
 # Crear anuncio
+
 POST {{URL}}/nuevo_anuncio
 Content-Type: application/json
 
@@ -105,10 +119,11 @@ Content-Type: application/json
 ###
 # Eliminar anuncio
 
-DELETE {{URL}}/eliminar_anuncio/2
+DELETE {{URL}}/eliminar_anuncio/1
 
 ########################################################################
-####################### GESTIÓN INVENTARIO ##############################
+######################## GESTIÓN INVENTARIO ############################
+########################################################################
 
 ###
 # Añadir objeto
@@ -142,24 +157,26 @@ Content-Type: application/json
 DELETE {{URL}}/eliminar_objeto/1
 
 ########################################################################
-####################### GESTIÓN DESTINATARIOS ###########################
+###################### GESTIÓN DESTINATARIOS ###########################
+########################################################################
 
 ###
 # Registrar destinatario
 
 POST {{URL}}/nuevo_destinatario
 Content-Type: application/json
+
 {
     "nombres": "Juan",
-    "apellidos": "Pérez",
+    "apellidos": "Perez",
     "dni": 45111222,
-    "fecha_nacimiento": "2015-08-12", 
+    "fecha_nacimiento": "2015-08-12",
     "domicilio": "Calle 123",
     "escuela_anio": "4°",
     "retirar_solo": 0,
-    "adulto_responsable_uno": "María Pérez",
-    "adulto_responsable_dos": "Carlos Pérez",
-    "personas_autorizadas_retiro": "Ana Gómez",
+    "adulto_responsable_uno": "Maria Perez",
+    "adulto_responsable_dos": "Carlos Perez",
+    "personas_autorizadas_retiro": "Ana Gomez",
     "quien_vive": "Padres",
     "condicion_salud": "Ninguna"
 }
