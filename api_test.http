@@ -214,7 +214,7 @@ POST {{URL}}/nuevo_proyecto
 Content-Type: application/json
 
 {
-    "nombre": "Boomerang"
+    "nombre": "Merendero"
 }
 
 ###
@@ -229,10 +229,50 @@ PUT {{URL}}/actualizar_proyecto/1
 Content-Type: application/json
 
 {
-    "nombre": "Boomerang Actualizado"
+    "nombre": "Boomerang"
 }
 
 ###
 # Eliminar proyecto
 
-DELETE {{URL}}/eliminar_proyecto/1
+DELETE {{URL}}/eliminar_proyecto/4
+
+
+########################################################################
+############### DESTINATARIOS - PROYECTOS ###############################
+
+###
+# Asignar destinatario a un proyecto
+
+POST {{URL}}/asignar_destinatario_proyecto
+Content-Type: application/json
+
+{
+    "destinatarios_dni": 45111222,
+    "proyectos_idproyecto": 1
+}
+
+###
+# Traer destinatarios del proyecto (solo nombre y DNI)
+
+GET {{URL}}/traer_destinatarios_proyecto/1
+
+###
+# Traer un destinatario por DNI (ficha completa)
+
+GET {{URL}}/traer_destinatario/45111222
+
+###
+# Actualizar asignación
+
+PUT {{URL}}/actualizar_destinatario_proyecto/1
+Content-Type: application/json
+
+{
+    "proyectos_idproyecto": 2
+}
+
+###
+# Eliminar asignación
+
+DELETE {{URL}}/eliminar_destinatario_proyecto/1

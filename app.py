@@ -801,15 +801,123 @@ def eliminar_proyecto(id):
     return jsonify({"resultado": "Proyecto eliminado correctamente"})
 
 
+####################### GESTION PROYECTOS Y DESTINATARIOS ##############################
 
+####################### ASIGNAR DESTINATARIO A PROYECTO##############################
+@app.route("/asignar_destinatario_proyecto", methods=["POST"])
+@cross_origin()
+def asignar_destinatario_proyecto():
 
+    destinatarios_dni = request.json["destinatarios_dni"]
+    proyectos_idproyecto = request.json["proyectos_idproyecto"]
 
+    cursor = mysql.connection.cursor()
 
+    sql = """
+    INSERT INTO destinatario_proyecto
+    (
+        destinatarios_dni,
+        proyectos_idproyecto
+    )
+    VALUES (%s,%s)
+    """
 
+    cursor.execute(sql, (
+        destinatarios_dni,
+        proyectos_idproyecto
+    ))
 
+    mysql.connection.commit()
+    cursor.close()
 
+    return jsonify({"resultado": "Destinatario asignado correctamente"})
 
+############################ TRAER DESTINATARIOS DE UN PROYECTO###########################
 
+@app.route("/traer_destinatarios_proyecto/<int:idproyecto>", methods=["GET"])
+@cross_origin()
+def traer_destinatarios_proyecto(idproyecto):
+
+    sql = """
+    SELECT
+        dp.id,
+        d.dni,
+        CONCAT(d.apellidos, ', ', d.nombres) AS nombre
+    FROM destinatario_proyecto dp
+    INNER JOIN destinatarios d
+        ON dp.destinatarios_dni = d.dni
+    WHERE dp.proyectos_idproyecto = %s
+    ORDER BY d.apellidos, d.nombres
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (idproyecto,))
+
+    resultado = cursor.fetchall()
+    cursor.close()
+
+    destinatarios = []
+
+    for i in resultado:
+
+        destinatarios.append({
+            "id": i[0],
+            "dni": i[1],
+            "nombre": i[2]
+        })
+
+    return jsonify(destinatarios)
+
+############################ ACTUALIZAR DESTINATARIO DE PROYECTO############################
+
+@app.route("/actualizar_destinatario_proyecto/<int:id>", methods=["PUT"])
+@cross_origin()
+def actualizar_destinatario_proyecto(id):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "destinatarios_dni" in datos:
+        campos.append("destinatarios_dni=%s")
+        valores.append(datos["destinatarios_dni"])
+
+    if "proyectos_idproyecto" in datos:
+        campos.append("proyectos_idproyecto=%s")
+        valores.append(datos["proyectos_idproyecto"])
+
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"""
+    UPDATE destinatario_proyecto
+    SET {', '.join(campos)}
+    WHERE id=%s
+    """
+
+    valores.append(id)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Asignación actualizada correctamente"})
+
+############################ ELIMINAR DESTINATARIO DE PROYECTO############################
+
+@app.route("/eliminar_destinatario_proyecto/<int:id>", methods=["DELETE"])
+@cross_origin()
+def eliminar_destinatario_proyecto(id):
+
+    cursor = mysql.connection.cursor()
+    cursor.execute("DELETE FROM destinatario_proyecto WHERE id=%s", (id,))
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Asignación eliminada correctamente"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
