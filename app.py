@@ -689,10 +689,129 @@ def eliminar_destinatario(dni):
 
     return jsonify({"resultado": "Destinatario eliminado correctamente"})
 
+
+
+####################### GESTION PROYECTOS ##############################
+
+####################### AÑADIR PROYECTO ##############################
+
+@app.route("/nuevo_proyecto", methods=["POST"])
+@cross_origin()
+def agregar_proyecto():
+
+    nombre = request.json["nombre"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    INSERT INTO proyectos
+    (
+        nombre
+    )
+    VALUES (%s)
+    """
+
+    cursor.execute(sql, (nombre,))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Proyecto agregado correctamente"})
+
+####################### TRAER PROYECTOS ##############################
+
+
+@app.route("/traer_proyectos", methods=["GET"])
+@cross_origin()
+def traer_proyectos():
+
+    sql = """
+    SELECT
+        idproyecto,
+        nombre
+    FROM proyectos
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql)
+
+    resultado = cursor.fetchall()
+    cursor.close()
+
+    proyectos = []
+
+    for i in resultado:
+
+        proyectos.append({
+            "idproyecto": i[0],
+            "nombre": i[1]
+        })
+
+    return jsonify(proyectos)
+
+####################### ACTUALIZAR PROYECTO ##############################
+
+@app.route("/actualizar_proyecto/<int:id>", methods=["PUT"])
+@cross_origin()
+def actualizar_proyecto(id):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "nombre" in datos:
+        campos.append("nombre=%s")
+        valores.append(datos["nombre"])
+
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"""
+    UPDATE proyectos
+    SET {', '.join(campos)}
+    WHERE idproyecto=%s
+    """
+
+    valores.append(id)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Proyecto actualizado correctamente"})
+
+####################### ELIMINAR PROYECTO ##############################
+
+
+@app.route("/eliminar_proyecto/<int:id>", methods=["DELETE"])
+@cross_origin()
+def eliminar_proyecto(id):
+
+    sql = "DELETE FROM proyectos WHERE idproyecto=%s"
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (id,))
+
+    mysql.connection.commit()
+    cursor.close()
+
+    return jsonify({"resultado": "Proyecto eliminado correctamente"})
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
     
-
-
-

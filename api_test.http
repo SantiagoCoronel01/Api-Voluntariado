@@ -202,3 +202,37 @@ Content-Type: application/json
 # Eliminar destinatario
 
 DELETE {{URL}}/eliminar_destinatario/45111222
+
+
+########################################################################
+######################## GESTIÓN PROYECTOS ##############################
+
+###
+# Agregar proyecto
+
+POST {{URL}}/nuevo_proyecto
+Content-Type: application/json
+
+{
+    "nombre": "Boomerang"
+}
+
+###
+# Traer proyectos
+
+GET {{URL}}/traer_proyectos
+
+###
+# Actualizar proyecto
+
+PUT {{URL}}/actualizar_proyecto/1
+Content-Type: application/json
+
+{
+    "nombre": "Boomerang Actualizado"
+}
+
+###
+# Eliminar proyecto
+
+DELETE {{URL}}/eliminar_proyecto/1
