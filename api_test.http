@@ -277,7 +277,7 @@ DELETE {{URL}}/eliminar_destinatario_proyecto/1
 
 ###
 
-POST {{URL}}/nuevo_destinatario
+POST {{URL}}/añadir_destinatario
 Content-Type: application/json
 
 {
