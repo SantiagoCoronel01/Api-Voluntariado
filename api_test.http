@@ -292,11 +292,46 @@ Content-Type: application/json
 GET {{URL}}/traer_sesiones
 
 ###
-# Traer una sesión
+# Actualizar una sesión
 
-GET {{URL}}/traer_sesion/1
+PUT {{URL}}/actualizar_sesion/1
+Content-Type: application/json
 
+{
+    "proyectos_idproyecto": 2,
+    "usuario_idusuario": 3
+}
 ###
 # Eliminar sesión
 
 DELETE {{URL}}/eliminar_sesion/1
+
+########################################################################
+####################### GUARDAR ASISTENCIA #############################
+
+###
+
+POST {{URL}}/guardar_asistencia
+Content-Type: application/json
+
+{
+    "sesiones_idsesion": 1,
+    "asistencias":[
+
+        {
+            "dni":45111222,
+            "presente":1
+        },
+
+        {
+            "dni":45888777,
+            "presente":0
+        },
+
+        {
+            "dni":46999111,
+            "presente":1
+        }
+
+    ]
+}

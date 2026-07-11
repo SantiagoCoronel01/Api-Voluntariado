@@ -1122,6 +1122,45 @@ def eliminar_sesion(idsesion):
 
     return jsonify({"resultado": "Sesión eliminada correctamente"})
 
+############################ GUARDAR ASISTENCIA ############################
+
+@app.route("/guardar_asistencia", methods=["POST"])
+@cross_origin()
+def guardar_asistencia():
+
+    sesion = request.json["sesiones_idsesion"]
+    asistencias = request.json["asistencias"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    INSERT INTO asistencia
+    (
+        sesiones_idsesion,
+        destinatarios_dni,
+        presente
+    )
+    VALUES (%s,%s,%s)
+    """
+
+    for asistencia in asistencias:
+
+        cursor.execute(sql, (
+
+            sesion,
+            asistencia["dni"],
+            asistencia["presente"]
+
+        ))
+
+    mysql.connection.commit()
+
+    cursor.close()
+
+    return jsonify({"resultado":"Asistencia guardada correctamente"})
+
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
