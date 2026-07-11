@@ -258,11 +258,6 @@ Content-Type: application/json
 GET {{URL}}/traer_destinatarios_proyecto/1
 
 ###
-# Traer un destinatario por DNI (ficha completa)
-
-GET {{URL}}/traer_destinatario/45111222
-
-###
 # Actualizar asignación
 
 PUT {{URL}}/actualizar_destinatario_proyecto/1

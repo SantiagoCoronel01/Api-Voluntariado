@@ -840,33 +840,48 @@ def traer_destinatarios_proyecto(idproyecto):
 
     sql = """
     SELECT
+        p.idproyecto,
+        p.nombre,
         dp.id,
         d.dni,
-        CONCAT(d.apellidos, ', ', d.nombres) AS nombre
-    FROM destinatario_proyecto dp
+        CONCAT(d.apellidos, ', ', d.nombres)
+    FROM proyectos p
+    INNER JOIN destinatario_proyecto dp
+        ON p.idproyecto = dp.proyectos_idproyecto
     INNER JOIN destinatarios d
         ON dp.destinatarios_dni = d.dni
-    WHERE dp.proyectos_idproyecto = %s
-    ORDER BY d.apellidos, d.nombres
+    WHERE p.idproyecto=%s
+    ORDER BY d.apellidos,d.nombres
     """
 
     cursor = mysql.connection.cursor()
-    cursor.execute(sql, (idproyecto,))
+    cursor.execute(sql,(idproyecto,))
 
     resultado = cursor.fetchall()
+
     cursor.close()
 
-    destinatarios = []
+    if len(resultado)==0:
+        return jsonify({"mensaje":"Proyecto sin destinatarios"})
+
+    proyecto={
+
+        "idproyecto":resultado[0][0],
+        "proyecto":resultado[0][1],
+        "destinatarios":[]
+    }
 
     for i in resultado:
 
-        destinatarios.append({
-            "id": i[0],
-            "dni": i[1],
-            "nombre": i[2]
+        proyecto["destinatarios"].append({
+
+            "id":i[2],
+            "dni":i[3],
+            "nombre":i[4]
+
         })
 
-    return jsonify(destinatarios)
+    return jsonify(proyecto)
 
 ############################ ACTUALIZAR DESTINATARIO DE PROYECTO############################
 
