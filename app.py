@@ -934,6 +934,147 @@ def eliminar_destinatario_proyecto(id):
 
     return jsonify({"resultado": "Asignación eliminada correctamente"})
 
+####################### GESTION SESIONES DE ASISTENCIA ##############################
+
+############################ CREAR SESION ############################
+
+@app.route("/nueva_sesion", methods=["POST"])
+@cross_origin()
+def nueva_sesion():
+
+    proyectos_idproyecto = request.json["proyectos_idproyecto"]
+    usuario_idusuario = request.json["usuario_idusuario"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    INSERT INTO sesiones_asistencia
+    (
+        fecha,
+        proyectos_idproyecto,
+        usuario_idusuario
+    )
+    VALUES (NOW(), %s, %s)
+    """
+
+    cursor.execute(sql, (
+        proyectos_idproyecto,
+        usuario_idusuario
+    ))
+
+    mysql.connection.commit()
+
+    idsesion = cursor.lastrowid
+
+    cursor.close()
+
+    return jsonify({
+        "resultado":"Sesión creada correctamente",
+        "idsesion":idsesion
+    })
+
+############################ TRAER SESIONES ############################
+
+@app.route("/traer_sesiones", methods=["GET"])
+@cross_origin()
+def traer_sesiones():
+
+    sql = """
+    SELECT
+        s.idsesion,
+        s.fecha,
+        p.nombre,
+        u.nombre
+    FROM sesiones_asistencia s
+    INNER JOIN proyectos p
+        ON s.proyectos_idproyecto = p.idproyecto
+    INNER JOIN usuario u
+        ON s.usuario_idusuario = u.idusuario
+    ORDER BY s.fecha DESC
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql)
+
+    resultado = cursor.fetchall()
+
+    cursor.close()
+
+    sesiones = []
+
+    for i in resultado:
+
+        sesiones.append({
+
+            "idsesion":i[0],
+            "fecha":i[1],
+            "proyecto":i[2],
+            "usuario":i[3]
+
+        })
+
+    return jsonify(sesiones)
+
+############################ TRAER UNA SESION ############################
+
+@app.route("/traer_sesion/<int:idsesion>", methods=["GET"])
+@cross_origin()
+def traer_sesion(idsesion):
+
+    sql = """
+    SELECT
+        s.idsesion,
+        s.fecha,
+        p.nombre,
+        u.nombre
+    FROM sesiones_asistencia s
+    INNER JOIN proyectos p
+        ON s.proyectos_idproyecto = p.idproyecto
+    INNER JOIN usuario u
+        ON s.usuario_idusuario = u.idusuario
+    WHERE s.idsesion=%s
+    """
+
+    cursor = mysql.connection.cursor()
+
+    cursor.execute(sql,(idsesion,))
+
+    resultado = cursor.fetchone()
+
+    cursor.close()
+
+    if resultado == None:
+
+        return jsonify({"mensaje":"Sesión no encontrada"})
+
+    return jsonify({
+
+        "idsesion":resultado[0],
+        "fecha":resultado[1],
+        "proyecto":resultado[2],
+        "usuario":resultado[3]
+
+    })
+
+############################ ELIMINAR SESION ############################
+
+@app.route("/eliminar_sesion/<int:idsesion>", methods=["DELETE"])
+@cross_origin()
+def eliminar_sesion(idsesion):
+
+    cursor = mysql.connection.cursor()
+
+    cursor.execute(
+        "DELETE FROM sesiones_asistencia WHERE idsesion=%s",
+        (idsesion,)
+    )
+
+    mysql.connection.commit()
+
+    cursor.close()
+
+    return jsonify({"resultado":"Sesión eliminada correctamente"})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

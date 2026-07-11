@@ -248,14 +248,14 @@ POST {{URL}}/asignar_destinatario_proyecto
 Content-Type: application/json
 
 {
-    "destinatarios_dni": 45111222,
-    "proyectos_idproyecto": 1
+    "destinatarios_dni": 45111223,
+    "proyectos_idproyecto": 
 }
 
 ###
-# Traer destinatarios del proyecto (solo nombre y DNI)
+# Traer destinatarios del proyecto (solo nombre y DNI) elegir id del proyecto y te lo trae
 
-GET {{URL}}/traer_destinatarios_proyecto/1
+GET {{URL}}/traer_destinatarios_proyecto/
 
 ###
 # Actualizar asignación
@@ -273,164 +273,30 @@ Content-Type: application/json
 DELETE {{URL}}/eliminar_destinatario_proyecto/1
 
 ########################################################################
-######################## DESTINATARIOS pruebas #################################
+################## GESTIÓN SESIONES DE ASISTENCIA ######################
 
 ###
+# Crear sesión
 
-POST {{URL}}/añadir_destinatario
+POST {{URL}}/nueva_sesion
 Content-Type: application/json
 
 {
-    "nombres":"Juan",
-    "apellidos":"Pérez",
-    "dni":45111222,
-    "fecha_nacimiento":"2015-08-12",
-    "domicilio":"Av. Hipólito Yrigoyen 1234",
-    "escuela_anio":"4°",
-    "retirar_solo":0,
-    "adulto_responsable_uno":"María Pérez",
-    "adulto_responsable_dos":"Carlos Pérez",
-    "personas_autorizadas_retiro":"Ana Gómez",
-    "quien_vive":"Padres",
-    "condicion_salud":"Ninguna"
+    "proyectos_idproyecto":1,
+    "usuario_idusuario":1
 }
 
 ###
+# Traer todas las sesiones
 
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Mateo",
-    "apellidos":"Gómez",
-    "dni":45111223,
-    "fecha_nacimiento":"2014-06-20",
-    "domicilio":"Carlos Pellegrini 455",
-    "escuela_anio":"5°",
-    "retirar_solo":0,
-    "adulto_responsable_uno":"Laura Gómez",
-    "adulto_responsable_dos":"José Gómez",
-    "personas_autorizadas_retiro":"Marta Gómez",
-    "quien_vive":"Padres",
-    "condicion_salud":"Asma"
-}
+GET {{URL}}/traer_sesiones
 
 ###
+# Traer una sesión
 
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Valentina",
-    "apellidos":"López",
-    "dni":45111224,
-    "fecha_nacimiento":"2013-02-15",
-    "domicilio":"Av. Pavón 876",
-    "escuela_anio":"6°",
-    "retirar_solo":1,
-    "adulto_responsable_uno":"Silvia López",
-    "adulto_responsable_dos":"Raúl López",
-    "personas_autorizadas_retiro":"Ninguna",
-    "quien_vive":"Madre",
-    "condicion_salud":"Ninguna"
-}
+GET {{URL}}/traer_sesion/1
 
 ###
+# Eliminar sesión
 
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Lucas",
-    "apellidos":"Fernández",
-    "dni":45111225,
-    "fecha_nacimiento":"2012-11-10",
-    "domicilio":"Ituzaingó 1420",
-    "escuela_anio":"1° Sec.",
-    "retirar_solo":1,
-    "adulto_responsable_uno":"Patricia Fernández",
-    "adulto_responsable_dos":"Miguel Fernández",
-    "personas_autorizadas_retiro":"Ninguna",
-    "quien_vive":"Padres",
-    "condicion_salud":"Ninguna"
-}
-
-###
-
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Sofía",
-    "apellidos":"Martínez",
-    "dni":45111226,
-    "fecha_nacimiento":"2011-04-01",
-    "domicilio":"Belgrano 230",
-    "escuela_anio":"2° Sec.",
-    "retirar_solo":1,
-    "adulto_responsable_uno":"Carolina Martínez",
-    "adulto_responsable_dos":"Diego Martínez",
-    "personas_autorizadas_retiro":"Ninguna",
-    "quien_vive":"Padres",
-    "condicion_salud":"Diabetes"
-}
-
-###
-
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Thiago",
-    "apellidos":"Ruiz",
-    "dni":45111227,
-    "fecha_nacimiento":"2010-09-18",
-    "domicilio":"25 de Mayo 788",
-    "escuela_anio":"3° Sec.",
-    "retirar_solo":1,
-    "adulto_responsable_uno":"Andrea Ruiz",
-    "adulto_responsable_dos":"Pablo Ruiz",
-    "personas_autorizadas_retiro":"Ninguna",
-    "quien_vive":"Padres",
-    "condicion_salud":"Ninguna"
-}
-
-###
-
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Camila",
-    "apellidos":"Sosa",
-    "dni":45111228,
-    "fecha_nacimiento":"2016-10-25",
-    "domicilio":"Las Heras 456",
-    "escuela_anio":"3°",
-    "retirar_solo":0,
-    "adulto_responsable_uno":"Natalia Sosa",
-    "adulto_responsable_dos":"Fernando Sosa",
-    "personas_autorizadas_retiro":"Daniela Sosa",
-    "quien_vive":"Padres",
-    "condicion_salud":"Ninguna"
-}
-
-###
-
-POST {{URL}}/nuevo_destinatario
-Content-Type: application/json
-
-{
-    "nombres":"Benjamín",
-    "apellidos":"Torres",
-    "dni":45111229,
-    "fecha_nacimiento":"2017-07-14",
-    "domicilio":"Avellaneda 1050",
-    "escuela_anio":"2°",
-    "retirar_solo":0,
-    "adulto_responsable_uno":"Claudia Torres",
-    "adulto_responsable_dos":"Javier Torres",
-    "personas_autorizadas_retiro":"Lucía Torres",
-    "quien_vive":"Padres",
-    "condicion_salud":"Alergia al maní"
-}
+DELETE {{URL}}/eliminar_sesion/1
