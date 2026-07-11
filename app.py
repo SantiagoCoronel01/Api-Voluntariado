@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify
 from flask.helpers import make_response
 from flask_mysqldb import MySQL
 from flask_cors import CORS, cross_origin
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # para subir archivos
 import os
@@ -945,6 +946,8 @@ def nueva_sesion():
     proyectos_idproyecto = request.json["proyectos_idproyecto"]
     usuario_idusuario = request.json["usuario_idusuario"]
 
+    fecha = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires"))
+
     cursor = mysql.connection.cursor()
 
     sql = """
@@ -954,10 +957,11 @@ def nueva_sesion():
         proyectos_idproyecto,
         usuario_idusuario
     )
-    VALUES (NOW(), %s, %s)
+    VALUES (%s, %s, %s)
     """
 
     cursor.execute(sql, (
+        fecha,
         proyectos_idproyecto,
         usuario_idusuario
     ))
@@ -969,9 +973,10 @@ def nueva_sesion():
     cursor.close()
 
     return jsonify({
-        "resultado":"Sesión creada correctamente",
-        "idsesion":idsesion
+        "resultado": "Sesión creada correctamente",
+        "idsesion": idsesion
     })
+
 
 ############################ TRAER SESIONES ############################
 
@@ -1006,14 +1011,15 @@ def traer_sesiones():
 
         sesiones.append({
 
-            "idsesion":i[0],
-            "fecha":i[1],
-            "proyecto":i[2],
-            "usuario":i[3]
+            "idsesion": i[0],
+            "fecha": i[1],
+            "proyecto": i[2],
+            "usuario": i[3]
 
         })
 
     return jsonify(sesiones)
+
 
 ############################ TRAER UNA SESION ############################
 
@@ -1037,24 +1043,65 @@ def traer_sesion(idsesion):
 
     cursor = mysql.connection.cursor()
 
-    cursor.execute(sql,(idsesion,))
+    cursor.execute(sql, (idsesion,))
 
     resultado = cursor.fetchone()
 
     cursor.close()
 
-    if resultado == None:
-
-        return jsonify({"mensaje":"Sesión no encontrada"})
+    if resultado is None:
+        return jsonify({"mensaje": "Sesión no encontrada"})
 
     return jsonify({
 
-        "idsesion":resultado[0],
-        "fecha":resultado[1],
-        "proyecto":resultado[2],
-        "usuario":resultado[3]
+        "idsesion": resultado[0],
+        "fecha": resultado[1],
+        "proyecto": resultado[2],
+        "usuario": resultado[3]
 
     })
+
+
+############################ ACTUALIZAR SESION ############################
+
+@app.route("/actualizar_sesion/<int:idsesion>", methods=["PUT"])
+@cross_origin()
+def actualizar_sesion(idsesion):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "proyectos_idproyecto" in datos:
+        campos.append("proyectos_idproyecto=%s")
+        valores.append(datos["proyectos_idproyecto"])
+
+    if "usuario_idusuario" in datos:
+        campos.append("usuario_idusuario=%s")
+        valores.append(datos["usuario_idusuario"])
+
+    if len(campos) == 0:
+        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+
+    sql = f"""
+    UPDATE sesiones_asistencia
+    SET {', '.join(campos)}
+    WHERE idsesion=%s
+    """
+
+    valores.append(idsesion)
+
+    cursor = mysql.connection.cursor()
+
+    cursor.execute(sql, tuple(valores))
+
+    mysql.connection.commit()
+
+    cursor.close()
+
+    return jsonify({"resultado": "Sesión actualizada correctamente"})
+
 
 ############################ ELIMINAR SESION ############################
 
@@ -1073,7 +1120,7 @@ def eliminar_sesion(idsesion):
 
     cursor.close()
 
-    return jsonify({"resultado":"Sesión eliminada correctamente"})
+    return jsonify({"resultado": "Sesión eliminada correctamente"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
