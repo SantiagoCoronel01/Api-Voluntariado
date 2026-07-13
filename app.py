@@ -1143,21 +1143,35 @@ def guardar_asistencia():
     VALUES (%s,%s,%s)
     """
 
-    for asistencia in asistencias:
+    try:
 
-        cursor.execute(sql, (
+        for asistencia in asistencias:
 
-            sesion,
-            asistencia["dni"],
-            asistencia["presente"]
+            cursor.execute(sql, (
 
-        ))
+                sesion,
+                asistencia["dni"],
+                asistencia["presente"]
 
-    mysql.connection.commit()
+            ))
 
-    cursor.close()
+        mysql.connection.commit()
 
-    return jsonify({"resultado":"Asistencia guardada correctamente"})
+        return jsonify({
+            "resultado":"Asistencia guardada correctamente"
+        })
+
+    except Exception as e:
+
+        mysql.connection.rollback()
+
+        return jsonify({
+            "error":str(e)
+        }),400
+
+    finally:
+
+        cursor.close()
 
 
 
