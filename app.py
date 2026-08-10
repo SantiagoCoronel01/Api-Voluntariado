@@ -1171,6 +1171,50 @@ def eliminar_sesion(idsesion):
 
     return jsonify({"resultado": "Sesión eliminada correctamente"})
 
+
+############################ ACTUALIZAR ASISTENCIA ############################
+
+@app.route("/actualizar_asistencia/int:id", methods=["PUT"])
+@cross_origin()
+def actualizar_asistencia(id):
+
+    datos = request.json
+
+    campos = []
+    valores = []
+
+    if "presente" in datos:
+        campos.append("presente=%s")
+        valores.append(datos["presente"])
+
+    if "destinatarios_dni" in datos:
+        campos.append("destinatarios_dni=%s")
+        valores.append(datos["destinatarios_dni"])
+
+    if len(campos) == 0:
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
+
+    sql = f"""
+    UPDATE asistencia
+    SET {', '.join(campos)}
+    WHERE id=%s
+    """
+
+    valores.append(id)
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, tuple(valores))
+
+    mysql.connection.commit()
+
+    cursor.close()
+
+    return jsonify({
+        "resultado": "Asistencia actualizada correctamente"
+    })
+
 ############################ GUARDAR ASISTENCIA ############################
 
 @app.route("/guardar_asistencia", methods=["POST"])
@@ -1221,6 +1265,76 @@ def guardar_asistencia():
     finally:
 
         cursor.close()
+
+############################ ELIMINAR ASISTENCIA ############################
+
+@app.route("/eliminar_asistencia/int:id", methods=["DELETE"])
+@cross_origin()
+def eliminar_asistencia(id):
+
+    sql = """
+    DELETE FROM asistencia
+    WHERE id=%s
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (id,))
+
+    mysql.connection.commit()
+
+    cursor.close()
+
+    return jsonify({
+        "resultado": "Asistencia eliminada correctamente"
+    })
+
+############################ TRAER ASISTENCIAS DE UNA SESION ############################
+
+@app.route("/traer_asistencias/int:idsesion", methods=["GET"])
+@cross_origin()
+def traer_asistencias(idsesion):
+
+    sql = """
+    SELECT
+        a.id,
+        a.sesiones_idsesion,
+        a.destinatarios_dni,
+        CONCAT(d.apellidos, ', ', d.nombres),
+        a.presente
+    FROM asistencia a
+    INNER JOIN destinatarios d
+        ON a.destinatarios_dni = d.dni
+    WHERE a.sesiones_idsesion=%s
+    ORDER BY d.apellidos, d.nombres
+    """
+
+    cursor = mysql.connection.cursor()
+    cursor.execute(sql, (idsesion,))
+
+    resultado = cursor.fetchall()
+
+    cursor.close()
+
+    if len(resultado) == 0:
+        return jsonify({
+            "mensaje": "No hay asistencias para esta sesion"
+        })
+
+    asistencias = []
+
+    for i in resultado:
+
+        asistencias.append({
+
+            "id": i[0],
+            "sesiones_idsesion": i[1],
+            "dni": i[2],
+            "nombre": i[3],
+            "presente": i[4]
+
+        })
+
+    return jsonify(asistencias)
 
 
 
