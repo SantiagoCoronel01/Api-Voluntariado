@@ -248,6 +248,55 @@ def actualizar_usuario_voluntariado(id):
 
     return jsonify({"resultado": "Usuario actualizado correctamente"})
 
+    ############################ INICIAR SESIÓN ############################
+
+@app.route("/iniciar_sesion", methods=["POST"])
+@cross_origin()
+def iniciar_sesion():
+
+    mail = request.json["mail"]
+    clave = request.json["clave"]
+
+    cursor = mysql.connection.cursor()
+
+    sql = """
+    SELECT
+        idusuario,
+        nombre,
+        mail,
+        perfil,
+        activo
+    FROM usuario
+    WHERE mail=%s AND clave=%s
+    """
+
+    cursor.execute(sql, (mail, clave))
+
+    resultado = cursor.fetchone()
+
+    cursor.close()
+
+    if resultado is None:
+        return jsonify({
+            "resultado": "Mail o contraseña incorrectos"
+        }), 401
+
+    if resultado[4] == 0:
+        return jsonify({
+            "resultado": "El usuario no está activo"
+        }), 403
+
+    return jsonify({
+        "resultado": "Inicio de sesión correcto",
+        "usuario": {
+            "idusuario": resultado[0],
+            "nombre": resultado[1],
+            "mail": resultado[2],
+            "perfil": resultado[3],
+            "activo": resultado[4]
+        }
+    })
+
 ####################### GESTION ANUNCIOS ##############################
 
 ################## CREAR ANUNCIO ######################

@@ -81,6 +81,19 @@ PUT {{URL}}/activar_usuario/2
 
 PUT {{URL}}/desactivar_usuario/2
 
+
+
+###
+# INICIAR SESIÓN 
+
+POST {{URL}}/iniciar_sesion
+Content-Type: application/json
+
+{
+    "mail": "santiago.coronel@sagradoalcal.edu.ar",
+    "clave": "Voluntario01"
+}
+
 ########################################################################
 ######################## GESTIÓN ANUNCIOS ##############################
 ########################################################################
@@ -315,7 +328,7 @@ POST {{URL}}/guardar_asistencia
 Content-Type: application/json
 
 {
-    "sesiones_idsesion": 1,
+    "sesiones_idsesion": 2,
     "asistencias":[
 
         {
