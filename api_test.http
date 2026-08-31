@@ -53,6 +53,7 @@ Content-Type: application/json
 
 {
     "nombre": "Santiago",
+    "apellido":"XCoronel",
     "mail": "santiago.coronel@sagradoalcal.edu.ar",
     "clave": "Voluntario01",
     "perfil": "Referente"

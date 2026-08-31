@@ -129,6 +129,7 @@ def actualizar_usuario(id):
 def insertar_usuario_voluntariado():
 
     nombre = request.json["nombre"]
+    apellido = request.json["apellido"]
     mail = request.json["mail"]
     clave = request.json["clave"]
     perfil = request.json["perfil"]
@@ -136,11 +137,11 @@ def insertar_usuario_voluntariado():
     cursor = mysql.connection.cursor()
 
     sql = """
-    INSERT INTO usuario(nombre, mail, clave, perfil, activo)
-    VALUES (%s, %s, %s, %s, 0)
+    INSERT INTO usuario(nombre, apellido, mail, clave, perfil, activo)
+    VALUES (%s, %s, %s, %s, %s, 0)
     """
 
-    cursor.execute(sql, (nombre, mail, clave, perfil))
+    cursor.execute(sql, (nombre, apellido, mail, clave, perfil))
 
     mysql.connection.commit()
     cursor.close()
@@ -153,7 +154,7 @@ def insertar_usuario_voluntariado():
 def listar_usuarios_voluntariado():
 
     sql = """
-    SELECT idusuario, nombre, mail, clave, perfil, activo
+    SELECT idusuario, nombre, apellido, mail, clave, perfil, activo
     FROM usuario
     """
 
@@ -172,10 +173,11 @@ def listar_usuarios_voluntariado():
         usuarios.append({
             "idusuario": i[0],
             "nombre": i[1],
-            "mail": i[2],
-            "clave": i[3],
-            "perfil": i[4],
-            "activo": i[5]
+            "apellido": i[2],
+            "mail": i[3],
+            "clave": i[4],
+            "perfil": i[5],
+            "activo": i[6]
         })
 
     return jsonify(usuarios)
@@ -222,6 +224,10 @@ def actualizar_usuario_voluntariado(id):
         campos.append("nombre=%s")
         valores.append(datos["nombre"])
 
+    if "apellido" in datos:
+        campos.append("apellido=%s")
+        valores.append(datos["apellido"])        
+
     if "mail" in datos:
         campos.append("mail=%s")
         valores.append(datos["mail"])
@@ -263,6 +269,7 @@ def iniciar_sesion():
     SELECT
         idusuario,
         nombre,
+        apellido,
         mail,
         perfil,
         activo
@@ -291,9 +298,10 @@ def iniciar_sesion():
         "usuario": {
             "idusuario": resultado[0],
             "nombre": resultado[1],
-            "mail": resultado[2],
-            "perfil": resultado[3],
-            "activo": resultado[4]
+            "apellido": resultado[2],
+            "mail": resultado[3],
+            "perfil": resultado[4],
+            "activo": resultado[5]
         }
     })
 
