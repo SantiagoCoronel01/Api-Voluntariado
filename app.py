@@ -451,24 +451,135 @@ def eliminar_anuncio(id):
 @cross_origin()
 def añadir_objeto():
 
-    nombre = request.json["nombre"]
-    cantidad = request.json["cantidad"]
+    datos = request.json
+
+    nombre = datos["nombre"]
+    cantidad = datos["cantidad"]
+    proyectos_idproyecto = datos["proyectos_idproyecto"]
 
     cursor = mysql.connection.cursor()
 
+    try:
+
+        # Crear objeto
+        sql_objeto = """
+        INSERT INTO inventario
+        (
+            nombre,
+            cantidad
+        )
+        VALUES (%s,%s)
+        """
+
+        cursor.execute(
+            sql_objeto,
+            (
+                nombre,
+                cantidad
+            )
+        )
+
+        id_objeto = cursor.lastrowid
+
+        # Asociar objeto al proyecto
+        sql_relacion = """
+        INSERT INTO inventario_proyecto
+        (
+            inventario_idRegistro_objetos,
+            proyectos_idproyecto
+        )
+        VALUES (%s,%s)
+        """
+
+        cursor.execute(
+            sql_relacion,
+            (
+                id_objeto,
+                proyectos_idproyecto
+            )
+        )
+
+        mysql.connection.commit()
+
+        return jsonify({
+            "resultado": "Objeto agregado correctamente",
+            "idRegistro_objetos": id_objeto
+        })
+
+    except Exception as e:
+
+        mysql.connection.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 400
+
+    finally:
+
+        cursor.close()
+
+
+############################ TRAER INVENTARIO DE UN PROYECTO ############################
+
+@app.route("/traer_inventario_proyecto/<int:idproyecto>", methods=["GET"])
+@cross_origin()
+def traer_inventario_proyecto(idproyecto):
+
     sql = """
-    INSERT INTO inventario(nombre, cantidad)
-    VALUES (%s, %s)
+    SELECT
+        i.idRegistro_objetos,
+        i.nombre,
+        i.cantidad,
+        ip.id,
+        p.idproyecto,
+        p.nombre
+    FROM inventario i
+
+    INNER JOIN inventario_proyecto ip
+        ON i.idRegistro_objetos = ip.inventario_idRegistro_objetos
+
+    INNER JOIN proyectos p
+        ON ip.proyectos_idproyecto = p.idproyecto
+
+    WHERE p.idproyecto=%s
+
+    ORDER BY i.nombre
     """
 
-    cursor.execute(sql, (nombre, cantidad))
+    cursor = mysql.connection.cursor()
 
-    mysql.connection.commit()
+    cursor.execute(
+        sql,
+        (idproyecto,)
+    )
+
+    resultado = cursor.fetchall()
+
     cursor.close()
 
-    return jsonify({"resultado": "Objeto agregado al inventario"})
+    inventario = []
 
-############################ TRAER INVENTARIO ############################
+    for i in resultado:
+
+        inventario.append({
+
+            "idRegistro_objetos": i[0],
+
+            "nombre": i[1],
+
+            "cantidad": i[2],
+
+            "idRelacion": i[3],
+
+            "idproyecto": i[4],
+
+            "proyecto": i[5]
+
+        })
+
+    return jsonify(inventario)
+
+############################### TRAER INVENTARIO ############################
 
 @app.route("/traer_inventario", methods=["GET"])
 @cross_origin()
