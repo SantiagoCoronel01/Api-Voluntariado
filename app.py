@@ -589,7 +589,8 @@ def traer_inventario():
     SELECT
     idRegistro_objetos,
     nombre,
-    cantidad
+    cantidad,
+    idProyecto
     FROM inventario
     """
 
@@ -606,7 +607,8 @@ def traer_inventario():
         inventario.append({
             "idRegistro_objetos": i[0],
             "nombre": i[1],
-            "cantidad": i[2]
+            "cantidad": i[2],
+            "id_proyecto":i[3]
         })
 
     return jsonify(inventario)
