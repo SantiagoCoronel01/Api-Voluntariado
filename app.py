@@ -271,39 +271,67 @@ def iniciar_sesion():
         nombre,
         apellido,
         mail,
+        clave,
         perfil,
         activo
     FROM usuario
-    WHERE mail=%s AND clave=%s
+    WHERE mail=%s
     """
 
-    cursor.execute(sql, (mail, clave))
+    cursor.execute(sql, (mail,))
 
     resultado = cursor.fetchone()
 
-    cursor.close()
-
     if resultado is None:
+
+        cursor.close()
+
         return jsonify({
-            "resultado": "Mail o contraseña incorrectos"
+            "resultado": "El usuario no existe"
+        }), 404
+
+
+    if resultado[4] != clave:
+
+        cursor.close()
+
+        return jsonify({
+            "resultado": "La contraseña es incorrecta"
         }), 401
 
-    if resultado[4] == 0:
+
+    if resultado[6] == 0:
+
+        cursor.close()
+
         return jsonify({
             "resultado": "El usuario no está activo"
         }), 403
 
+
+    cursor.close()
+
     return jsonify({
+
         "resultado": "Inicio de sesión correcto",
+
         "usuario": {
+
             "idusuario": resultado[0],
+
             "nombre": resultado[1],
+
             "apellido": resultado[2],
+
             "mail": resultado[3],
-            "perfil": resultado[4],
-            "activo": resultado[5]
+
+            "perfil": resultado[5],
+
+            "activo": resultado[6]
+
         }
-    })
+
+    }), 200
 
 ####################### GESTION ANUNCIOS ##############################
 

@@ -75,12 +75,12 @@ Content-Type: application/json
 ###
 # Activar usuario
 
-PUT {{URL}}/activar_usuario/2
+PUT {{URL}}/activar_usuario/1
 
 ###
 # Desactivar usuario
 
-PUT {{URL}}/desactivar_usuario/2
+PUT {{URL}}/desactivar_usuario/1
 
 
 
