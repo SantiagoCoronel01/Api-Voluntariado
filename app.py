@@ -121,32 +121,85 @@ def actualizar_usuario(id):
 
 #####################################################################
 #######################LINEAS VOLUNTARIADO###########################
+####################### GESTION USUARIOS ##############################
 
-#######################GESTION USUARIOS##############################
-#AGREGAR USUARIOS
 @app.route("/nuevo_usuario_voluntariado", methods=["POST"])
 @cross_origin()
 def insertar_usuario_voluntariado():
 
-    nombre = request.json["nombre"]
-    apellido = request.json["apellido"]
-    mail = request.json["mail"]
-    clave = request.json["clave"]
-    perfil = request.json["perfil"]
+    datos = request.json
+
+    nombre = datos.get("nombre", "").strip()
+    apellido = datos.get("apellido", "").strip()
+    mail = datos.get("mail", "").strip()
+    clave = datos.get("clave", "").strip()
+    perfil = datos.get("perfil", "").strip()
+
+    # Comprobar campos obligatorios
+
+    if (
+        nombre == "" or
+        apellido == "" or
+        mail == "" or
+        clave == "" or
+        perfil == ""
+    ):
+
+        return jsonify({
+            "resultado": "Todos los campos son obligatorios"
+        }), 400
 
     cursor = mysql.connection.cursor()
 
+    # Comprobar si el correo ya existe
+
     sql = """
-    INSERT INTO usuario(nombre, apellido, mail, clave, perfil, activo)
+    SELECT idusuario
+    FROM usuario
+    WHERE mail=%s
+    """
+
+    cursor.execute(sql, (mail,))
+
+    usuario_existente = cursor.fetchone()
+
+    if usuario_existente is not None:
+
+        cursor.close()
+
+        return jsonify({
+            "resultado": "El correo ya está registrado"
+        }), 409
+
+    # Crear usuario
+
+    sql = """
+    INSERT INTO usuario
+    (
+        nombre,
+        apellido,
+        mail,
+        clave,
+        perfil,
+        activo
+    )
     VALUES (%s, %s, %s, %s, %s, 0)
     """
 
-    cursor.execute(sql, (nombre, apellido, mail, clave, perfil))
+    cursor.execute(sql, (
+        nombre,
+        apellido,
+        mail,
+        clave,
+        perfil
+    ))
 
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Usuario registrado. Pendiente de activación."})
+    return jsonify({
+        "resultado": "Usuario registrado. Pendiente de activación."
+    })
 
 ###TRAER USUARIOS
 @app.route("/traer_usuarios_voluntariado", methods=["GET"])
