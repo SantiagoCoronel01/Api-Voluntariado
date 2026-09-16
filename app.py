@@ -21,7 +21,29 @@ app.config["MYSQL_DB"] = os.environ.get("DB_NAME")
 
 mysql = MySQL(app)
 
-CORS(app)
+# =========================================================
+# CORS
+# =========================================================
+
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": "*",
+            "methods": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+            ],
+            "allow_headers": [
+                "Content-Type",
+                "Authorization"
+            ]
+        }
+    }
+)
 
 #LINEAS DE PRUEBA
 ###CREAR USUARIO
@@ -37,7 +59,6 @@ def insertar_usuario():
     sql = "INSERT INTO Usuarios(nombre, apellido, provincia) values(%s, %s, %s);"
     cursor.execute(sql, (nombre, apellido, provincia))
 
-
     mysql.connection.commit()
 
     cursor.close()
@@ -45,6 +66,7 @@ def insertar_usuario():
 
     response = jsonify({"resultado":"Agregado nuevo usuario"})
     return response
+
 
 ###TRAER USUARIOS
 @app.route("/traer_usuarios", methods=["GET"])
@@ -54,7 +76,7 @@ def listar_jugadores():
     sql = "SELECT idUsuarios, nombre, apellido, provincia FROM Usuarios"
 
     #crear el cursor
-    cursor = mysql.connection.cursor()#mysql.connect.cursor()
+    cursor = mysql.connection.cursor()
     cursor.execute(sql)
 
     resultado = cursor.fetchall()
@@ -71,10 +93,17 @@ def listar_jugadores():
 
         for i in resultado:
 
-            p = {"id":i[0], "nombre":i[1], "apellido":i[2], "provincia":i[3]}
+            p = {
+                "id":i[0],
+                "nombre":i[1],
+                "apellido":i[2],
+                "provincia":i[3]
+            }
+
             usuarios.append(p)
 
         return jsonify(usuarios)
+
 
 ###ELIMINAR USUARIO
 @cross_origin
@@ -93,14 +122,15 @@ def eliminar_usuario(id):
     cursor.close()
     response = make_response()
 
-
     response = jsonify({"resultado":"Usuario eliminado"})
     return response
+
 
 ###ACTUALIZAR USUARIO
 @cross_origin
 @app.route("/actualizar_usuario_prueba/<id>", methods=["PUT"])
 def actualizar_usuario(id):
+
     nombre = request.json["nom"]
 
     sql = "UPDATE Usuarios SET nombre=%s WHERE idUsuarios=%s"
@@ -108,8 +138,8 @@ def actualizar_usuario(id):
     #crear el cursor
     cursor = mysql.connection.cursor()
     cursor.execute(sql, (nombre, id))
-    mysql.connection.commit()
 
+    mysql.connection.commit()
 
     #cerrar la conexión
     cursor.close()
@@ -201,6 +231,7 @@ def insertar_usuario_voluntariado():
         "resultado": "Usuario registrado. Pendiente de activación."
     })
 
+
 ###TRAER USUARIOS
 @app.route("/traer_usuarios_voluntariado", methods=["GET"])
 @cross_origin()
@@ -223,6 +254,7 @@ def listar_usuarios_voluntariado():
     usuarios = []
 
     for i in resultado:
+
         usuarios.append({
             "idusuario": i[0],
             "nombre": i[1],
@@ -234,6 +266,7 @@ def listar_usuarios_voluntariado():
         })
 
     return jsonify(usuarios)
+
 
 ###ELIMINAR USUARIO
 @app.route("/desactivar_usuario/<id>", methods=["PUT"])
@@ -249,6 +282,7 @@ def desactivar_usuario(id):
 
     return jsonify({"resultado": "Usuario desactivado"})
 
+
 ### ACTIVAR USUARIO
 @app.route("/activar_usuario/<id>", methods=["PUT"])
 @cross_origin()
@@ -262,6 +296,7 @@ def activar_usuario(id):
     cursor.close()
 
     return jsonify({"resultado": "Usuario activado"})
+
 
 ### ACTUALIZAR USUARIO
 @app.route("/actualizar_usuario_voluntariado/<id>", methods=["PUT"])
@@ -279,7 +314,7 @@ def actualizar_usuario_voluntariado(id):
 
     if "apellido" in datos:
         campos.append("apellido=%s")
-        valores.append(datos["apellido"])        
+        valores.append(datos["apellido"])
 
     if "mail" in datos:
         campos.append("mail=%s")
@@ -294,7 +329,9 @@ def actualizar_usuario_voluntariado(id):
         valores.append(datos["perfil"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"UPDATE usuario SET {', '.join(campos)} WHERE idusuario=%s"
 
@@ -302,12 +339,16 @@ def actualizar_usuario_voluntariado(id):
 
     cursor = mysql.connection.cursor()
     cursor.execute(sql, tuple(valores))
+
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Usuario actualizado correctamente"})
+    return jsonify({
+        "resultado": "Usuario actualizado correctamente"
+    })
 
-    ############################ INICIAR SESIÓN ############################
+
+############################ INICIAR SESIÓN ############################
 
 @app.route("/iniciar_sesion", methods=["POST"])
 @cross_origin()
@@ -343,7 +384,6 @@ def iniciar_sesion():
             "resultado": "El usuario no existe"
         }), 404
 
-
     if resultado[4] != clave:
 
         cursor.close()
@@ -352,7 +392,6 @@ def iniciar_sesion():
             "resultado": "La contraseña es incorrecta"
         }), 401
 
-
     if resultado[6] == 0:
 
         cursor.close()
@@ -360,7 +399,6 @@ def iniciar_sesion():
         return jsonify({
             "resultado": "El usuario no está activo"
         }), 403
-
 
     cursor.close()
 
@@ -385,6 +423,7 @@ def iniciar_sesion():
         }
 
     }), 200
+
 
 ####################### GESTION ANUNCIOS ##############################
 
@@ -423,7 +462,9 @@ def insertar_anuncio():
 
     return jsonify({"resultado": "Anuncio agregado"})
 
+
 ############################TRAER ANUNCIOS#########################
+
 @app.route("/traer_anuncios", methods=["GET"])
 @cross_origin()
 def listar_anuncios():
@@ -464,6 +505,7 @@ def listar_anuncios():
 
     return jsonify(anuncios)
 
+
 ############################ ACTUALIZAR ANUNCIO ############################
 
 @app.route("/actualizar_anuncio/<int:id>", methods=["PUT"])
@@ -496,7 +538,9 @@ def actualizar_anuncio(id):
         valores.append(datos["tipo_evento"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"UPDATE anuncios SET {', '.join(campos)} WHERE idAnuncios=%s"
 
@@ -504,10 +548,14 @@ def actualizar_anuncio(id):
 
     cursor = mysql.connection.cursor()
     cursor.execute(sql, tuple(valores))
+
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Anuncio actualizado correctamente"})
+    return jsonify({
+        "resultado": "Anuncio actualizado correctamente"
+    })
+
 
 ############################ ELIMINAR ANUNCIO ############################
 
@@ -519,10 +567,14 @@ def eliminar_anuncio(id):
 
     cursor = mysql.connection.cursor()
     cursor.execute(sql, (id,))
+
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Anuncio eliminado correctamente"})
+    return jsonify({
+        "resultado": "Anuncio eliminado correctamente"
+    })
+
 
 ####################### GESTION INVENTARIO ##############################
 
@@ -660,6 +712,7 @@ def traer_inventario_proyecto(idproyecto):
 
     return jsonify(inventario)
 
+
 ############################### TRAER INVENTARIO ############################
 
 @app.route("/traer_inventario", methods=["GET"])
@@ -689,10 +742,11 @@ def traer_inventario():
             "idRegistro_objetos": i[0],
             "nombre": i[1],
             "cantidad": i[2],
-            "id_proyecto":i[3]
+            "id_proyecto": i[3]
         })
 
     return jsonify(inventario)
+
 
 ############################ ACTUALIZAR OBJETO ############################
 
@@ -714,7 +768,9 @@ def actualizar_objeto(id):
         valores.append(datos["cantidad"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"UPDATE inventario SET {', '.join(campos)} WHERE idRegistro_objetos=%s"
 
@@ -722,10 +778,14 @@ def actualizar_objeto(id):
 
     cursor = mysql.connection.cursor()
     cursor.execute(sql, tuple(valores))
+
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Objeto actualizado correctamente"})
+    return jsonify({
+        "resultado": "Objeto actualizado correctamente"
+    })
+
 
 ############################ ELIMINAR OBJETO ############################
 
@@ -737,10 +797,14 @@ def eliminar_objeto(id):
 
     cursor = mysql.connection.cursor()
     cursor.execute(sql, (id,))
+
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Objeto eliminado correctamente"})
+    return jsonify({
+        "resultado": "Objeto eliminado correctamente"
+    })
+
 
 ####################### GESTION DESTINATARIOS##############################
 
@@ -802,7 +866,10 @@ def registrar_destinatario():
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Destinatario registrado"})
+    return jsonify({
+        "resultado": "Destinatario registrado"
+    })
+
 
 ############################ TRAER DESTINATARIOS ############################
 
@@ -836,7 +903,7 @@ def traer_destinatarios():
     destinatarios = []
 
     for i in resultado:
-    
+
         destinatarios.append({
             "nombres": i[0],
             "apellidos": i[1],
@@ -851,8 +918,9 @@ def traer_destinatarios():
             "quien_vive": i[10],
             "condicion_salud": i[11]
         })
-    
+
     return jsonify(destinatarios)
+
 
 ############################ ACTUALIZAR DESTINATARIO ############################
 
@@ -910,7 +978,9 @@ def actualizar_destinatario(dni):
         valores.append(datos["condicion_salud"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"UPDATE destinatarios SET {', '.join(campos)} WHERE dni=%s"
 
@@ -922,9 +992,11 @@ def actualizar_destinatario(dni):
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Destinatario actualizado correctamente"})
+    return jsonify({
+        "resultado": "Destinatario actualizado correctamente"
+    })
 
-  
+
 ############################ ELIMINAR DESTINATARIO ############################
 
 @app.route("/eliminar_destinatario/<int:dni>", methods=["DELETE"])
@@ -939,8 +1011,9 @@ def eliminar_destinatario(dni):
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Destinatario eliminado correctamente"})
-
+    return jsonify({
+        "resultado": "Destinatario eliminado correctamente"
+    })
 
 
 ####################### GESTION PROYECTOS ##############################
@@ -968,10 +1041,12 @@ def agregar_proyecto():
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Proyecto agregado correctamente"})
+    return jsonify({
+        "resultado": "Proyecto agregado correctamente"
+    })
+
 
 ####################### TRAER PROYECTOS ##############################
-
 
 @app.route("/traer_proyectos", methods=["GET"])
 @cross_origin()
@@ -1001,6 +1076,7 @@ def traer_proyectos():
 
     return jsonify(proyectos)
 
+
 ####################### ACTUALIZAR PROYECTO ##############################
 
 @app.route("/actualizar_proyecto/<int:id>", methods=["PUT"])
@@ -1017,7 +1093,9 @@ def actualizar_proyecto(id):
         valores.append(datos["nombre"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"""
     UPDATE proyectos
@@ -1033,10 +1111,12 @@ def actualizar_proyecto(id):
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Proyecto actualizado correctamente"})
+    return jsonify({
+        "resultado": "Proyecto actualizado correctamente"
+    })
+
 
 ####################### ELIMINAR PROYECTO ##############################
-
 
 @app.route("/eliminar_proyecto/<int:id>", methods=["DELETE"])
 @cross_origin()
@@ -1050,12 +1130,15 @@ def eliminar_proyecto(id):
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Proyecto eliminado correctamente"})
+    return jsonify({
+        "resultado": "Proyecto eliminado correctamente"
+    })
 
 
 ####################### GESTION PROYECTOS Y DESTINATARIOS ##############################
 
-####################### ASIGNAR DESTINATARIO A PROYECTO##############################
+####################### ASIGNAR DESTINATARIO A PROYECTO ##############################
+
 @app.route("/asignar_destinatario_proyecto", methods=["POST"])
 @cross_origin()
 def asignar_destinatario_proyecto():
@@ -1082,9 +1165,12 @@ def asignar_destinatario_proyecto():
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Destinatario asignado correctamente"})
+    return jsonify({
+        "resultado": "Destinatario asignado correctamente"
+    })
 
-############################ TRAER DESTINATARIOS DE UN PROYECTO###########################
+
+############################ TRAER DESTINATARIOS DE UN PROYECTO ###########################
 
 @app.route("/traer_destinatarios_proyecto/<int:idproyecto>", methods=["GET"])
 @cross_origin()
@@ -1114,10 +1200,11 @@ def traer_destinatarios_proyecto(idproyecto):
     cursor.close()
 
     if len(resultado)==0:
-        return jsonify({"mensaje":"Proyecto sin destinatarios"})
+        return jsonify({
+            "mensaje":"Proyecto sin destinatarios"
+        })
 
-    proyecto={
-
+    proyecto = {
         "idproyecto":resultado[0][0],
         "proyecto":resultado[0][1],
         "destinatarios":[]
@@ -1135,7 +1222,8 @@ def traer_destinatarios_proyecto(idproyecto):
 
     return jsonify(proyecto)
 
-############################ ACTUALIZAR DESTINATARIO DE PROYECTO############################
+
+############################ ACTUALIZAR DESTINATARIO DE PROYECTO ############################
 
 @app.route("/actualizar_destinatario_proyecto/<int:id>", methods=["PUT"])
 @cross_origin()
@@ -1155,7 +1243,9 @@ def actualizar_destinatario_proyecto(id):
         valores.append(datos["proyectos_idproyecto"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"""
     UPDATE destinatario_proyecto
@@ -1171,20 +1261,31 @@ def actualizar_destinatario_proyecto(id):
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Asignación actualizada correctamente"})
+    return jsonify({
+        "resultado": "Asignación actualizada correctamente"
+    })
 
-############################ ELIMINAR DESTINATARIO DE PROYECTO############################
+
+############################ ELIMINAR DESTINATARIO DE PROYECTO ############################
 
 @app.route("/eliminar_destinatario_proyecto/<int:id>", methods=["DELETE"])
 @cross_origin()
 def eliminar_destinatario_proyecto(id):
 
     cursor = mysql.connection.cursor()
-    cursor.execute("DELETE FROM destinatario_proyecto WHERE id=%s", (id,))
+
+    cursor.execute(
+        "DELETE FROM destinatario_proyecto WHERE id=%s",
+        (id,)
+    )
+
     mysql.connection.commit()
     cursor.close()
 
-    return jsonify({"resultado": "Asignación eliminada correctamente"})
+    return jsonify({
+        "resultado": "Asignación eliminada correctamente"
+    })
+
 
 ####################### GESTION SESIONES DE ASISTENCIA ##############################
 
@@ -1197,7 +1298,9 @@ def nueva_sesion():
     proyectos_idproyecto = request.json["proyectos_idproyecto"]
     usuario_idusuario = request.json["usuario_idusuario"]
 
-    fecha = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires"))
+    fecha = datetime.now(
+        ZoneInfo("America/Argentina/Buenos_Aires")
+    )
 
     cursor = mysql.connection.cursor()
 
@@ -1301,7 +1404,9 @@ def traer_sesion(idsesion):
     cursor.close()
 
     if resultado is None:
-        return jsonify({"mensaje": "Sesión no encontrada"})
+        return jsonify({
+            "mensaje": "Sesión no encontrada"
+        })
 
     return jsonify({
 
@@ -1333,7 +1438,9 @@ def actualizar_sesion(idsesion):
         valores.append(datos["usuario_idusuario"])
 
     if len(campos) == 0:
-        return jsonify({"resultado": "No se enviaron datos para actualizar"}), 400
+        return jsonify({
+            "resultado": "No se enviaron datos para actualizar"
+        }), 400
 
     sql = f"""
     UPDATE sesiones_asistencia
@@ -1351,7 +1458,9 @@ def actualizar_sesion(idsesion):
 
     cursor.close()
 
-    return jsonify({"resultado": "Sesión actualizada correctamente"})
+    return jsonify({
+        "resultado": "Sesión actualizada correctamente"
+    })
 
 
 ############################ ELIMINAR SESION ############################
@@ -1371,7 +1480,9 @@ def eliminar_sesion(idsesion):
 
     cursor.close()
 
-    return jsonify({"resultado": "Sesión eliminada correctamente"})
+    return jsonify({
+        "resultado": "Sesión eliminada correctamente"
+    })
 
 
 ############################ ACTUALIZAR ASISTENCIA ############################
@@ -1416,6 +1527,7 @@ def actualizar_asistencia(id):
     return jsonify({
         "resultado": "Asistencia actualizada correctamente"
     })
+
 
 ############################ GUARDAR ASISTENCIA ############################
 
@@ -1468,6 +1580,7 @@ def guardar_asistencia():
 
         cursor.close()
 
+
 ############################ ELIMINAR ASISTENCIA ############################
 
 @app.route("/eliminar_asistencia/int:id", methods=["DELETE"])
@@ -1489,6 +1602,7 @@ def eliminar_asistencia(id):
     return jsonify({
         "resultado": "Asistencia eliminada correctamente"
     })
+
 
 ############################ TRAER ASISTENCIAS DE UNA SESION ############################
 
@@ -1539,8 +1653,20 @@ def traer_asistencias(idsesion):
     return jsonify(asistencias)
 
 
+# =========================================================
+# INICIO
+# =========================================================
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-    
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
+    )
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
