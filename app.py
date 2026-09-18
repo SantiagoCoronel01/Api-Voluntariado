@@ -282,6 +282,42 @@ def desactivar_usuario(id):
 
     return jsonify({"resultado": "Usuario desactivado"})
 
+### ELIMINAR USUARIO VOLUNTARIADO
+@app.route("/eliminar_usuario_voluntariado/<int:id>", methods=["DELETE"])
+@cross_origin()
+def eliminar_usuario_voluntariado(id):
+
+    cursor = mysql.connection.cursor()
+
+    try:
+
+        sql = "DELETE FROM usuario WHERE idusuario=%s"
+
+        cursor.execute(sql, (id,))
+
+        mysql.connection.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({
+                "resultado": "Usuario no encontrado"
+            }), 404
+
+        return jsonify({
+            "resultado": "Usuario eliminado correctamente"
+        }), 200
+
+    except Exception as e:
+
+        mysql.connection.rollback()
+
+        return jsonify({
+            "resultado": "No se pudo eliminar el usuario",
+            "error": str(e)
+        }), 400
+
+    finally:
+
+        cursor.close()
 
 ### ACTIVAR USUARIO
 @app.route("/activar_usuario/<id>", methods=["PUT"])
