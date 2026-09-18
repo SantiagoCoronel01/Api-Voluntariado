@@ -2,17 +2,20 @@ from flask import Flask, request, jsonify
 from flask.helpers import make_response
 from flask_mysqldb import MySQL
 from flask_cors import CORS, cross_origin
+from flask import send_from_directory
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# para subir archivos
+from werkzeug.utils import secure_filename
+from uuid import uuid4
+
 import os
+# para subir archivos
+
 #from werkzeug.utils import secure_filename
 
-
 app = Flask(__name__)
-
-import os
 
 app.config["MYSQL_HOST"] = os.environ.get("DB_HOST")
 app.config["MYSQL_USER"] = os.environ.get("DB_USER")
@@ -20,7 +23,51 @@ app.config["MYSQL_PASSWORD"] = os.environ.get("DB_PASSWORD")
 app.config["MYSQL_DB"] = os.environ.get("DB_NAME")
 
 mysql = MySQL(app)
+# =========================================================
+# IMAGENES DE ANUNCIOS
+# =========================================================
 
+UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    ),
+    "uploads"
+)
+
+os.makedirs(
+    UPLOAD_FOLDER,
+    exist_ok=True
+)
+
+app.config["UPLOAD_FOLDER"] = (
+    UPLOAD_FOLDER
+)
+
+app.config["MAX_CONTENT_LENGTH"] = (
+    5 * 1024 * 1024
+)
+
+
+EXTENSIONES_PERMITIDAS = {
+    "png",
+    "jpg",
+    "jpeg",
+    "webp"
+}
+
+
+def extension_permitida(
+    nombre_archivo
+):
+
+    return (
+        "." in nombre_archivo
+        and
+        nombre_archivo
+        .rsplit(".", 1)[1]
+        .lower()
+        in EXTENSIONES_PERMITIDAS
+    )
 # =========================================================
 # CORS
 # =========================================================
@@ -463,153 +510,690 @@ def iniciar_sesion():
 
 ####################### GESTION ANUNCIOS ##############################
 
-################## CREAR ANUNCIO ######################
+# =========================================================
+# TRAER IMAGEN
+# =========================================================
 
-@app.route("/nuevo_anuncio", methods=["POST"])
+@app.route(
+    "/uploads/<path:nombre_archivo>",
+    methods=["GET"]
+)
+@cross_origin()
+def obtener_imagen(
+    nombre_archivo
+):
+
+    return send_from_directory(
+        app.config["UPLOAD_FOLDER"],
+        nombre_archivo
+    )
+
+
+# =========================================================
+# CREAR ANUNCIO
+# =========================================================
+
+@app.route(
+    "/nuevo_anuncio",
+    methods=["POST"]
+)
 @cross_origin()
 def insertar_anuncio():
 
-    titulo = request.json["titulo"]
-    descripcion = request.json["descripcion"]
-    img = request.json["img"]
-    fecha_evento = request.json["fecha_evento"]
-    tipo_evento = request.json["tipo_evento"]
-    usuario = request.json["usuario"]
+    titulo = request.form.get(
+        "titulo",
+        ""
+    ).strip()
+
+    descripcion = request.form.get(
+        "descripcion",
+        ""
+    ).strip()
+
+    fecha_evento = request.form.get(
+        "fecha_evento",
+        ""
+    ).strip()
+
+    tipo_evento = request.form.get(
+        "tipo_evento",
+        ""
+    ).strip()
+
+    usuario = request.form.get(
+        "usuario"
+    )
+
+    imagen = request.files.get(
+        "img"
+    )
+
+
+    # =========================
+    # VALIDACIÓN
+    # =========================
+
+    if (
+        titulo == ""
+        or descripcion == ""
+        or fecha_evento == ""
+        or tipo_evento == ""
+        or usuario is None
+    ):
+
+        return jsonify({
+            "resultado":
+                "Todos los campos son obligatorios"
+        }), 400
+
+
+    if (
+        imagen is None
+        or imagen.filename == ""
+    ):
+
+        return jsonify({
+            "resultado":
+                "Debe seleccionar una imagen"
+        }), 400
+
+
+    if not extension_permitida(
+        imagen.filename
+    ):
+
+        return jsonify({
+            "resultado":
+                "Formato de imagen no permitido"
+        }), 400
+
+
+    # =========================
+    # GUARDAR IMAGEN
+    # =========================
+
+    nombre_original = (
+        secure_filename(
+            imagen.filename
+        )
+    )
+
+
+    extension = (
+        nombre_original
+        .rsplit(".", 1)[1]
+        .lower()
+    )
+
+
+    nombre_archivo = (
+        f"{uuid4().hex}.{extension}"
+    )
+
+
+    ruta_imagen = os.path.join(
+        app.config["UPLOAD_FOLDER"],
+        nombre_archivo
+    )
+
+
+    imagen.save(
+        ruta_imagen
+    )
+
+
+    # =========================
+    # MYSQL
+    # =========================
 
     cursor = mysql.connection.cursor()
 
-    sql = """
-    INSERT INTO anuncios
-    (titulo, descripcion, img, fecha_evento, tipo_evento, usuario_idusuario)
-    VALUES (%s, %s, %s, %s, %s, %s)
-    """
 
-    cursor.execute(sql, (
-        titulo,
-        descripcion,
-        img,
-        fecha_evento,
-        tipo_evento,
-        usuario
-    ))
+    try:
 
-    mysql.connection.commit()
-    cursor.close()
-
-    return jsonify({"resultado": "Anuncio agregado"})
+        sql = """
+        INSERT INTO anuncios
+        (
+            titulo,
+            descripcion,
+            img,
+            fecha_evento,
+            tipo_evento,
+            usuario_idusuario
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
 
 
-############################TRAER ANUNCIOS#########################
+        cursor.execute(
+            sql,
+            (
+                titulo,
+                descripcion,
+                nombre_archivo,
+                fecha_evento,
+                tipo_evento,
+                usuario
+            )
+        )
 
-@app.route("/traer_anuncios", methods=["GET"])
+
+        mysql.connection.commit()
+
+
+        return jsonify({
+
+            "resultado":
+                "Anuncio agregado correctamente",
+
+            "img":
+                nombre_archivo
+
+        }), 201
+
+
+    except Exception as e:
+
+        mysql.connection.rollback()
+
+
+        if os.path.exists(
+            ruta_imagen
+        ):
+
+            os.remove(
+                ruta_imagen
+            )
+
+
+        return jsonify({
+
+            "resultado":
+                "No se pudo crear el anuncio",
+
+            "error":
+                str(e)
+
+        }), 400
+
+
+    finally:
+
+        cursor.close()
+
+
+# =========================================================
+# TRAER ANUNCIOS
+# =========================================================
+
+@app.route(
+    "/traer_anuncios",
+    methods=["GET"]
+)
 @cross_origin()
 def listar_anuncios():
 
     sql = """
     SELECT
-    idAnuncios,
-    titulo,
-    descripcion,
-    img,
-    fecha_creado,
-    fecha_evento,
-    tipo_evento,
-    usuario_idusuario
+        idAnuncios,
+        titulo,
+        descripcion,
+        img,
+        fecha_creado,
+        fecha_evento,
+        tipo_evento,
+        usuario_idusuario
     FROM anuncios
+    ORDER BY fecha_creado DESC
     """
 
+
     cursor = mysql.connection.cursor()
-    cursor.execute(sql)
+
+    cursor.execute(
+        sql
+    )
+
 
     resultado = cursor.fetchall()
+
     cursor.close()
 
+
     anuncios = []
+
 
     for i in resultado:
 
         anuncios.append({
-            "idAnuncios": i[0],
-            "titulo": i[1],
-            "descripcion": i[2],
-            "img": i[3],
-            "fecha_creado": i[4],
-            "fecha_evento": i[5],
-            "tipo_evento": i[6],
-            "usuario": i[7]
+
+            "idAnuncios":
+                i[0],
+
+            "titulo":
+                i[1],
+
+            "descripcion":
+                i[2],
+
+            "img":
+                i[3],
+
+            "fecha_creado":
+                i[4],
+
+            "fecha_evento":
+                i[5],
+
+            "tipo_evento":
+                i[6],
+
+            "usuario":
+                i[7]
+
         })
 
-    return jsonify(anuncios)
+
+    return jsonify(
+        anuncios
+    )
 
 
-############################ ACTUALIZAR ANUNCIO ############################
+# =========================================================
+# ACTUALIZAR ANUNCIO
+# =========================================================
 
-@app.route("/actualizar_anuncio/<int:id>", methods=["PUT"])
+@app.route(
+    "/actualizar_anuncio/<int:id>",
+    methods=["PUT"]
+)
 @cross_origin()
 def actualizar_anuncio(id):
 
-    datos = request.json
+    cursor = mysql.connection.cursor()
 
-    campos = []
-    valores = []
+    nueva_ruta = None
 
-    if "titulo" in datos:
-        campos.append("titulo=%s")
-        valores.append(datos["titulo"])
+    nuevo_nombre = None
 
-    if "descripcion" in datos:
-        campos.append("descripcion=%s")
-        valores.append(datos["descripcion"])
+    imagen_anterior = None
 
-    if "img" in datos:
-        campos.append("img=%s")
-        valores.append(datos["img"])
 
-    if "fecha_evento" in datos:
-        campos.append("fecha_evento=%s")
-        valores.append(datos["fecha_evento"])
+    try:
 
-    if "tipo_evento" in datos:
-        campos.append("tipo_evento=%s")
-        valores.append(datos["tipo_evento"])
+        # =========================
+        # COMPROBAR ANUNCIO
+        # =========================
 
-    if len(campos) == 0:
+        cursor.execute(
+            """
+            SELECT img
+            FROM anuncios
+            WHERE idAnuncios=%s
+            """,
+            (id,)
+        )
+
+
+        anuncio_actual = (
+            cursor.fetchone()
+        )
+
+
+        if anuncio_actual is None:
+
+            return jsonify({
+                "resultado":
+                    "Anuncio no encontrado"
+            }), 404
+
+
+        imagen_anterior = (
+            anuncio_actual[0]
+        )
+
+
+        campos = []
+
+        valores = []
+
+
+        # =========================
+        # DATOS DE TEXTO
+        # =========================
+
+        titulo = request.form.get(
+            "titulo"
+        )
+
+        descripcion = request.form.get(
+            "descripcion"
+        )
+
+        fecha_evento = request.form.get(
+            "fecha_evento"
+        )
+
+        tipo_evento = request.form.get(
+            "tipo_evento"
+        )
+
+
+        if titulo is not None:
+
+            campos.append(
+                "titulo=%s"
+            )
+
+            valores.append(
+                titulo
+            )
+
+
+        if descripcion is not None:
+
+            campos.append(
+                "descripcion=%s"
+            )
+
+            valores.append(
+                descripcion
+            )
+
+
+        if fecha_evento is not None:
+
+            campos.append(
+                "fecha_evento=%s"
+            )
+
+            valores.append(
+                fecha_evento
+            )
+
+
+        if tipo_evento is not None:
+
+            campos.append(
+                "tipo_evento=%s"
+            )
+
+            valores.append(
+                tipo_evento
+            )
+
+
+        # =========================
+        # NUEVA IMAGEN
+        # =========================
+
+        imagen = request.files.get(
+            "img"
+        )
+
+
+        if (
+            imagen is not None
+            and imagen.filename != ""
+        ):
+
+            if not extension_permitida(
+                imagen.filename
+            ):
+
+                return jsonify({
+                    "resultado":
+                        "Formato de imagen no permitido"
+                }), 400
+
+
+            nombre_original = (
+                secure_filename(
+                    imagen.filename
+                )
+            )
+
+
+            extension = (
+                nombre_original
+                .rsplit(".", 1)[1]
+                .lower()
+            )
+
+
+            nuevo_nombre = (
+                f"{uuid4().hex}.{extension}"
+            )
+
+
+            nueva_ruta = os.path.join(
+                app.config[
+                    "UPLOAD_FOLDER"
+                ],
+                nuevo_nombre
+            )
+
+
+            imagen.save(
+                nueva_ruta
+            )
+
+
+            campos.append(
+                "img=%s"
+            )
+
+
+            valores.append(
+                nuevo_nombre
+            )
+
+
+        # =========================
+        # SIN CAMBIOS
+        # =========================
+
+        if len(campos) == 0:
+
+            return jsonify({
+                "resultado":
+                    "No se enviaron datos para actualizar"
+            }), 400
+
+
+        # =========================
+        # UPDATE
+        # =========================
+
+        sql = f"""
+        UPDATE anuncios
+        SET {', '.join(campos)}
+        WHERE idAnuncios=%s
+        """
+
+
+        valores.append(
+            id
+        )
+
+
+        cursor.execute(
+            sql,
+            tuple(valores)
+        )
+
+
+        mysql.connection.commit()
+
+
+        # =========================
+        # BORRAR IMAGEN VIEJA
+        # =========================
+
+        if (
+            nuevo_nombre
+            and imagen_anterior
+            and nuevo_nombre
+            != imagen_anterior
+        ):
+
+            ruta_anterior = (
+                os.path.join(
+                    app.config[
+                        "UPLOAD_FOLDER"
+                    ],
+                    imagen_anterior
+                )
+            )
+
+
+            if os.path.exists(
+                ruta_anterior
+            ):
+
+                os.remove(
+                    ruta_anterior
+                )
+
+
         return jsonify({
-            "resultado": "No se enviaron datos para actualizar"
+            "resultado":
+                "Anuncio actualizado correctamente"
+        })
+
+
+    except Exception as e:
+
+        mysql.connection.rollback()
+
+        if (
+            nueva_ruta
+            and os.path.exists(
+                nueva_ruta
+            )
+        ):
+
+            os.remove(
+                nueva_ruta
+            )
+
+
+        return jsonify({
+
+            "resultado":
+                "No se pudo actualizar el anuncio",
+
+            "error":
+                str(e)
+
         }), 400
 
-    sql = f"UPDATE anuncios SET {', '.join(campos)} WHERE idAnuncios=%s"
 
-    valores.append(id)
+    finally:
 
-    cursor = mysql.connection.cursor()
-    cursor.execute(sql, tuple(valores))
-
-    mysql.connection.commit()
-    cursor.close()
-
-    return jsonify({
-        "resultado": "Anuncio actualizado correctamente"
-    })
+        cursor.close()
 
 
-############################ ELIMINAR ANUNCIO ############################
+# =========================================================
+# ELIMINAR ANUNCIO
+# =========================================================
 
-@app.route("/eliminar_anuncio/<int:id>", methods=["DELETE"])
+@app.route(
+    "/eliminar_anuncio/<int:id>",
+    methods=["DELETE"]
+)
 @cross_origin()
 def eliminar_anuncio(id):
 
-    sql = "DELETE FROM anuncios WHERE idAnuncios=%s"
-
     cursor = mysql.connection.cursor()
-    cursor.execute(sql, (id,))
 
-    mysql.connection.commit()
-    cursor.close()
 
-    return jsonify({
-        "resultado": "Anuncio eliminado correctamente"
-    })
+    try:
+
+        cursor.execute(
+            """
+            SELECT img
+            FROM anuncios
+            WHERE idAnuncios=%s
+            """,
+            (id,)
+        )
+
+
+        resultado = (
+            cursor.fetchone()
+        )
+
+
+        if resultado is None:
+
+            return jsonify({
+                "resultado":
+                    "Anuncio no encontrado"
+            }), 404
+
+
+        nombre_imagen = (
+            resultado[0]
+        )
+
+
+        cursor.execute(
+            """
+            DELETE FROM anuncios
+            WHERE idAnuncios=%s
+            """,
+            (id,)
+        )
+
+
+        mysql.connection.commit()
+
+
+        if nombre_imagen:
+
+            ruta_imagen = os.path.join(
+                app.config[
+                    "UPLOAD_FOLDER"
+                ],
+                nombre_imagen
+            )
+
+
+            if os.path.exists(
+                ruta_imagen
+            ):
+
+                os.remove(
+                    ruta_imagen
+                )
+
+
+        return jsonify({
+            "resultado":
+                "Anuncio eliminado correctamente"
+        })
+
+
+    except Exception as e:
+
+        mysql.connection.rollback()
+
+
+        return jsonify({
+
+            "resultado":
+                "No se pudo eliminar el anuncio",
+
+            "error":
+                str(e)
+
+        }), 400
+
+
+    finally:
+
+        cursor.close()
 
 
 ####################### GESTION INVENTARIO ##############################
