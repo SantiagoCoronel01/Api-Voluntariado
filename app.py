@@ -1218,39 +1218,23 @@ def añadir_objeto():
         sql_objeto = """
         INSERT INTO inventario
         (
+            idRegistro_objetos,
             nombre,
             cantidad
         )
-        VALUES (%s,%s)
+        VALUES (%s,%s, %s)
         """
 
         cursor.execute(
             sql_objeto,
             (
+                proyectos_idproyecto,
                 nombre,
                 cantidad
             )
         )
 
         id_objeto = cursor.lastrowid
-
-        # Asociar objeto al proyecto
-        sql_relacion = """
-        INSERT INTO inventario_proyecto
-        (
-            inventario_idRegistro_objetos,
-            proyectos_idproyecto
-        )
-        VALUES (%s,%s)
-        """
-
-        cursor.execute(
-            sql_relacion,
-            (
-                id_objeto,
-                proyectos_idproyecto
-            )
-        )
 
         mysql.connection.commit()
 
