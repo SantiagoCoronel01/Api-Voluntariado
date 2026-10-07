@@ -1239,7 +1239,7 @@ def añadir_objeto():
         mysql.connection.commit()
 
         return jsonify({
-            "resultado": "Objeto agregado correctamente",
+            "resultado": "Objeto agregado correctamente, id: " + proyectos_idproyecto,
             "idRegistro_objetos": id_objeto
         })
 
