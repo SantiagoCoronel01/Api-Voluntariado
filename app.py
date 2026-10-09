@@ -1292,58 +1292,46 @@ def anadir_objeto():
 # TRAER INVENTARIO DE UN PROYECTO
 # =========================================================
 
-@app.route(
-    "/traer_inventario_proyecto/<int:idproyecto>",
-    methods=["GET"]
-)
-@cross_origin()
+
+@app.route('/traer_inventario_proyecto/<int:idproyecto>', methods=['GET'])
 def traer_inventario_proyecto(idproyecto):
-    cursor = mysql.connection.cursor()
+    cursor = None
 
     try:
-        cursor.execute(
-            """
+        cursor = mysql.connection.cursor()
+
+        consulta = """
             SELECT
                 i.idRegistro_objetos,
                 i.nombre,
-                i.cantidad,
-                p.idproyecto,
-                p.nombre
+                ip.cantidad,
+                ip.proyectos_idproyecto AS id_proyecto
             FROM inventario AS i
             INNER JOIN inventario_proyecto AS ip
-                ON ip.inventario_idRegistro_objetos =
-                   i.idRegistro_objetos
-            INNER JOIN proyectos AS p
-                ON p.idproyecto = ip.proyectos_idproyecto
-            WHERE p.idproyecto = %s
-            ORDER BY i.nombre
-            """,
-            (idproyecto,)
-        )
+                ON i.idRegistro_objetos = ip.inventario_id
+            WHERE ip.proyectos_idproyecto = %s
+        """
 
-        resultado = cursor.fetchall()
+        cursor.execute(consulta, (idproyecto,))
+        filas = cursor.fetchall()
 
-        return jsonify([
-            {
-                "idRegistro_objetos": fila[0],
-                "nombre": fila[1],
-                "cantidad": fila[2],
-                "id_proyecto": fila[3],
-                "proyecto": fila[4]
-            }
-            for fila in resultado
-        ]), 200
+        columnas = [columna[0] for columna in cursor.description]
+        resultado = [
+            dict(zip(columnas, fila))
+            for fila in filas
+        ]
 
-    except Exception as e:
-        app.logger.exception("Error al consultar inventario")
+        return jsonify(resultado), 200
 
+    except Exception as error:
+        print(f"Error al cargar inventario del proyecto {idproyecto}: {error}")
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo cargar el inventario"
         }), 500
 
     finally:
-        cursor.close()
-
+        if cursor is not None:
+            cursor.close()
 
 # =========================================================
 # TRAER TODO EL INVENTARIO CON SUS PROYECTOS
