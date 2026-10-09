@@ -1203,6 +1203,7 @@ def eliminar_anuncio(id):
 # AGREGAR OBJETO Y ASIGNARLO A UN PROYECTO
 # =========================================================
 
+
 @app.route("/nuevo_objeto", methods=["POST"])
 @cross_origin()
 def anadir_objeto():
@@ -1232,7 +1233,6 @@ def anadir_objeto():
     cursor = mysql.connection.cursor()
 
     try:
-        # Comprobar que el proyecto exista.
         cursor.execute(
             "SELECT idproyecto FROM proyectos WHERE idproyecto = %s",
             (id_proyecto,)
@@ -1243,25 +1243,22 @@ def anadir_objeto():
                 "error": "El proyecto seleccionado no existe"
             }), 400
 
-        # Crear el objeto: MySQL genera su ID.
+        # Guardar el objeto y su proyecto.
         cursor.execute(
             """
-            INSERT INTO inventario (nombre, cantidad)
-            VALUES (%s, %s)
+            INSERT INTO inventario (nombre, cantidad, idProyecto)
+            VALUES (%s, %s, %s)
             """,
-            (nombre, cantidad)
+            (nombre, cantidad, id_proyecto)
         )
 
         id_objeto = cursor.lastrowid
 
-        # Vincular el objeto al proyecto.
+        # Vincularlo usando el nombre correcto de la columna.
         cursor.execute(
             """
             INSERT INTO inventario_proyecto
-            (
-                inventario_idRegistro_objetos,
-                proyectos_idproyecto
-            )
+                (inventario_id, proyectos_idproyecto)
             VALUES (%s, %s)
             """,
             (id_objeto, id_proyecto)
@@ -1277,12 +1274,11 @@ def anadir_objeto():
 
     except Exception as e:
         mysql.connection.rollback()
-
         app.logger.exception("Error al guardar objeto")
 
         return jsonify({
             "error": str(e)
-        }), 400
+        }), 500
 
     finally:
         cursor.close()
@@ -1293,26 +1289,35 @@ def anadir_objeto():
 # =========================================================
 
 
-@app.route('/traer_inventario_proyecto/<int:idproyecto>', methods=['GET'])
+
+@app.route("/traer_inventario_proyecto/<int:idproyecto>", methods=["GET"])
+@cross_origin()
 def traer_inventario_proyecto(idproyecto):
-    cursor = None
+    cursor = mysql.connection.cursor()
 
     try:
-        cursor = mysql.connection.cursor()
-
         consulta = """
             SELECT
                 i.idRegistro_objetos,
                 i.nombre,
-                ip.cantidad,
-                ip.proyectos_idproyecto AS id_proyecto
+                i.cantidad,
+                COALESCE(
+                    ip.proyectos_idproyecto,
+                    i.idProyecto
+                ) AS id_proyecto
             FROM inventario AS i
-            INNER JOIN inventario_proyecto AS ip
+            LEFT JOIN inventario_proyecto AS ip
                 ON i.idRegistro_objetos = ip.inventario_id
-            WHERE ip.proyectos_idproyecto = %s
+            WHERE
+                ip.proyectos_idproyecto = %s
+                OR (
+                    ip.id IS NULL
+                    AND i.idProyecto = %s
+                )
+            ORDER BY i.nombre
         """
 
-        cursor.execute(consulta, (idproyecto,))
+        cursor.execute(consulta, (idproyecto, idproyecto))
         filas = cursor.fetchall()
 
         columnas = [columna[0] for columna in cursor.description]
@@ -1323,47 +1328,58 @@ def traer_inventario_proyecto(idproyecto):
 
         return jsonify(resultado), 200
 
-    except Exception as error:
-        print(f"Error al cargar inventario del proyecto {idproyecto}: {error}")
+    except Exception:
+        app.logger.exception(
+            "Error al cargar inventario del proyecto %s",
+            idproyecto
+        )
+
         return jsonify({
             "error": "No se pudo cargar el inventario"
         }), 500
 
     finally:
-        if cursor is not None:
-            cursor.close()
+        cursor.close()
 
 # =========================================================
 # TRAER TODO EL INVENTARIO CON SUS PROYECTOS
 # =========================================================
 
+
+
 @app.route("/traer_inventario", methods=["GET"])
 @cross_origin()
 def traer_inventario():
-    cursor = mysql.connection.cursor()
+    cursor = None
 
     try:
-        cursor.execute(
-            """
+        cursor = mysql.connection.cursor()
+
+        consulta = """
             SELECT
                 i.idRegistro_objetos,
                 i.nombre,
                 i.cantidad,
-                p.idproyecto,
-                p.nombre
+                COALESCE(
+                    ip.proyectos_idproyecto,
+                    i.idProyecto
+                ) AS id_proyecto,
+                p.nombre AS proyecto
             FROM inventario AS i
             LEFT JOIN inventario_proyecto AS ip
-                ON ip.inventario_idRegistro_objetos =
-                   i.idRegistro_objetos
+                ON ip.inventario_id = i.idRegistro_objetos
             LEFT JOIN proyectos AS p
-                ON p.idproyecto = ip.proyectos_idproyecto
+                ON p.idproyecto = COALESCE(
+                    ip.proyectos_idproyecto,
+                    i.idProyecto
+                )
             ORDER BY i.nombre
-            """
-        )
+        """
 
-        resultado = cursor.fetchall()
+        cursor.execute(consulta)
+        filas = cursor.fetchall()
 
-        return jsonify([
+        resultado = [
             {
                 "idRegistro_objetos": fila[0],
                 "nombre": fila[1],
@@ -1371,20 +1387,23 @@ def traer_inventario():
                 "id_proyecto": fila[3],
                 "proyecto": fila[4]
             }
-            for fila in resultado
-        ]), 200
+            for fila in filas
+        ]
+
+        return jsonify(resultado), 200
 
     except Exception as e:
-        app.logger.exception("Error al consultar todo el inventario")
+        app.logger.exception(
+            "Error al consultar todo el inventario"
+        )
 
         return jsonify({
             "error": str(e)
         }), 500
 
     finally:
-        cursor.close()
-
-
+        if cursor is not None:
+            cursor.close()
 ############################ ACTUALIZAR OBJETO ############################
 
 @app.route("/actualizar_objeto/<int:id>", methods=["PUT"])
