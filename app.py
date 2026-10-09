@@ -1627,27 +1627,51 @@ def eliminar_destinatario(dni):
 @app.route("/nuevo_proyecto", methods=["POST"])
 @cross_origin()
 def agregar_proyecto():
+    datos = request.get_json(silent=True) or {}
 
-    nombre = request.json["nombre"]
+    nombre = datos.get("nombre", "").strip()
+    descripcion = datos.get("descripcion", "").strip()
+    estado = datos.get("estado", "Activo").strip()
+
+    if not nombre:
+        return jsonify({
+            "resultado": "El nombre del proyecto es obligatorio"
+        }), 400
+
+    if estado not in ("Activo", "Inactivo"):
+        return jsonify({
+            "resultado": "El estado debe ser Activo o Inactivo"
+        }), 400
 
     cursor = mysql.connection.cursor()
 
-    sql = """
-    INSERT INTO proyectos
-    (
-        nombre
-    )
-    VALUES (%s)
-    """
+    try:
+        sql = """
+            INSERT INTO proyectos (nombre, descripcion, estado)
+            VALUES (%s, %s, %s)
+        """
 
-    cursor.execute(sql, (nombre,))
+        cursor.execute(sql, (nombre, descripcion, estado))
+        mysql.connection.commit()
 
-    mysql.connection.commit()
-    cursor.close()
+        nuevo_id = cursor.lastrowid
 
-    return jsonify({
-        "resultado": "Proyecto agregado correctamente"
-    })
+        return jsonify({
+            "resultado": "Proyecto agregado correctamente",
+            "idproyecto": nuevo_id
+        }), 201
+
+    except Exception as e:
+        mysql.connection.rollback()
+        print("Error al agregar proyecto:", e)
+
+        return jsonify({
+            "resultado": "No se pudo agregar el proyecto",
+            "error": str(e)
+        }), 400
+
+    finally:
+        cursor.close()
 
 
 ####################### TRAER PROYECTOS ##############################
@@ -1655,30 +1679,40 @@ def agregar_proyecto():
 @app.route("/traer_proyectos", methods=["GET"])
 @cross_origin()
 def traer_proyectos():
-
-    sql = """
-    SELECT
-        idproyecto,
-        nombre
-    FROM proyectos
-    """
-
     cursor = mysql.connection.cursor()
-    cursor.execute(sql)
 
-    resultado = cursor.fetchall()
-    cursor.close()
+    try:
+        sql = """
+            SELECT idproyecto, nombre, descripcion, estado
+            FROM proyectos
+            ORDER BY idproyecto DESC
+        """
 
-    proyectos = []
+        cursor.execute(sql)
+        resultado = cursor.fetchall()
 
-    for i in resultado:
+        proyectos = []
 
-        proyectos.append({
-            "idproyecto": i[0],
-            "nombre": i[1]
-        })
+        for fila in resultado:
+            proyectos.append({
+                "idproyecto": fila[0],
+                "nombre": fila[1],
+                "descripcion": fila[2] or "",
+                "estado": fila[3]
+            })
 
-    return jsonify(proyectos)
+        return jsonify(proyectos), 200
+
+    except Exception as e:
+        print("Error al traer proyectos:", e)
+
+        return jsonify({
+            "resultado": "No se pudieron traer los proyectos",
+            "error": str(e)
+        }), 500
+
+    finally:
+        cursor.close()
 
 
 ####################### ACTUALIZAR PROYECTO ##############################
@@ -1686,38 +1720,86 @@ def traer_proyectos():
 @app.route("/actualizar_proyecto/<int:id>", methods=["PUT"])
 @cross_origin()
 def actualizar_proyecto(id):
+    datos = request.get_json(silent=True) or {}
 
-    datos = request.json
+    nombre = datos.get("nombre")
+    descripcion = datos.get("descripcion")
+    estado = datos.get("estado")
 
     campos = []
     valores = []
 
-    if "nombre" in datos:
-        campos.append("nombre=%s")
-        valores.append(datos["nombre"])
+    if nombre is not None:
+        nombre = nombre.strip()
 
-    if len(campos) == 0:
+        if not nombre:
+            return jsonify({
+                "resultado": "El nombre del proyecto es obligatorio"
+            }), 400
+
+        campos.append("nombre=%s")
+        valores.append(nombre)
+
+    if descripcion is not None:
+        campos.append("descripcion=%s")
+        valores.append(descripcion.strip())
+
+    if estado is not None:
+        estado = estado.strip()
+
+        if estado not in ("Activo", "Inactivo"):
+            return jsonify({
+                "resultado": "El estado debe ser Activo o Inactivo"
+            }), 400
+
+        campos.append("estado=%s")
+        valores.append(estado)
+
+    if not campos:
         return jsonify({
             "resultado": "No se enviaron datos para actualizar"
         }), 400
 
-    sql = f"""
-    UPDATE proyectos
-    SET {', '.join(campos)}
-    WHERE idproyecto=%s
-    """
-
     valores.append(id)
 
     cursor = mysql.connection.cursor()
-    cursor.execute(sql, tuple(valores))
 
-    mysql.connection.commit()
-    cursor.close()
+    try:
+        sql = f"""
+            UPDATE proyectos
+            SET {', '.join(campos)}
+            WHERE idproyecto=%s
+        """
 
-    return jsonify({
-        "resultado": "Proyecto actualizado correctamente"
-    })
+        cursor.execute(sql, tuple(valores))
+        mysql.connection.commit()
+
+        if cursor.rowcount == 0:
+            cursor.execute(
+                "SELECT idproyecto FROM proyectos WHERE idproyecto=%s",
+                (id,)
+            )
+
+            if cursor.fetchone() is None:
+                return jsonify({
+                    "resultado": "Proyecto no encontrado"
+                }), 404
+
+        return jsonify({
+            "resultado": "Proyecto actualizado correctamente"
+        }), 200
+
+    except Exception as e:
+        mysql.connection.rollback()
+        print("Error al actualizar proyecto:", e)
+
+        return jsonify({
+            "resultado": "No se pudo actualizar el proyecto",
+            "error": str(e)
+        }), 400
+
+    finally:
+        cursor.close()
 
 
 ####################### ELIMINAR PROYECTO ##############################
@@ -1725,18 +1807,39 @@ def actualizar_proyecto(id):
 @app.route("/eliminar_proyecto/<int:id>", methods=["DELETE"])
 @cross_origin()
 def eliminar_proyecto(id):
-
-    sql = "DELETE FROM proyectos WHERE idproyecto=%s"
-
     cursor = mysql.connection.cursor()
-    cursor.execute(sql, (id,))
 
-    mysql.connection.commit()
-    cursor.close()
+    try:
+        cursor.execute(
+            "DELETE FROM proyectos WHERE idproyecto=%s",
+            (id,)
+        )
 
-    return jsonify({
-        "resultado": "Proyecto eliminado correctamente"
-    })
+        mysql.connection.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({
+                "resultado": "Proyecto no encontrado"
+            }), 404
+
+        return jsonify({
+            "resultado": "Proyecto eliminado correctamente"
+        }), 200
+
+    except Exception as e:
+        mysql.connection.rollback()
+        print("Error al eliminar proyecto:", e)
+
+        return jsonify({
+            "resultado": (
+                "No se pudo eliminar el proyecto. "
+                "Puede tener destinatarios u otros registros asociados."
+            ),
+            "error": str(e)
+        }), 400
+
+    finally:
+        cursor.close()
 
 
 ####################### GESTION PROYECTOS Y DESTINATARIOS ##############################
