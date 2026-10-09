@@ -1522,299 +1522,71 @@ def eliminar_objeto(id):
         cursor.close()
 
 
-####################### GESTION DESTINATARIOS ##############################
+####################### GESTION DESTINATARIOS##############################
 
-# =========================================================
-# REGISTRAR DESTINATARIO
-# =========================================================
+############################ REGISTRAR DESTINATARIO ############################
 
 @app.route("/nuevo_destinatario", methods=["POST"])
 @cross_origin()
 def registrar_destinatario():
 
-    datos = request.get_json(silent=True) or {}
-
-    campos_obligatorios = [
-        "nombres",
-        "apellidos",
-        "dni",
-        "fecha_nacimiento",
-        "domicilio",
-        "escuela_anio",
-        "retirar_solo",
-        "adulto_responsable_uno",
-        "adulto_responsable_dos",
-        "personas_autorizadas_retiro",
-        "quien_vive",
-        "condicion_salud"
-    ]
-
-    faltantes = [
-        campo for campo in campos_obligatorios
-        if campo not in datos
-    ]
-
-    if faltantes:
-        return jsonify({
-            "resultado": "Faltan campos obligatorios",
-            "campos": faltantes
-        }), 400
+    nombres = request.json["nombres"]
+    apellidos = request.json["apellidos"]
+    dni = request.json["dni"]
+    fecha_nacimiento = request.json["fecha_nacimiento"]
+    domicilio = request.json["domicilio"]
+    escuela_anio = request.json["escuela_anio"]
+    retirar_solo = request.json["retirar_solo"]
+    adulto_responsable_uno = request.json["adulto_responsable_uno"]
+    adulto_responsable_dos = request.json["adulto_responsable_dos"]
+    personas_autorizadas_retiro = request.json["personas_autorizadas_retiro"]
+    quien_vive = request.json["quien_vive"]
+    condicion_salud = request.json["condicion_salud"]
 
     cursor = mysql.connection.cursor()
 
-    try:
-        # Evitar registrar dos veces el mismo DNI.
-        cursor.execute(
-            "SELECT dni FROM destinatarios WHERE dni=%s",
-            (datos["dni"],)
-        )
+    sql = """
+    INSERT INTO destinatarios
+    (
+        nombres,
+        apellidos,
+        dni,
+        fecha_nacimiento,
+        domicilio,
+        escuela_anio,
+        retirar_solo,
+        adulto_responsable_uno,
+        adulto_responsable_dos,
+        personas_autorizadas_retiro,
+        quien_vive,
+        condicion_salud
+    )
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """
 
-        if cursor.fetchone() is not None:
-            return jsonify({
-                "resultado": "Ya existe un destinatario con ese DNI"
-            }), 409
+    cursor.execute(sql, (
+        nombres,
+        apellidos,
+        dni,
+        fecha_nacimiento,
+        domicilio,
+        escuela_anio,
+        retirar_solo,
+        adulto_responsable_uno,
+        adulto_responsable_dos,
+        personas_autorizadas_retiro,
+        quien_vive,
+        condicion_salud
+    ))
 
-        sql = """
-            INSERT INTO destinatarios (
-                nombres,
-                apellidos,
-                dni,
-                fecha_nacimiento,
-                domicilio,
-                escuela_anio,
-                retirar_solo,
-                adulto_responsable_uno,
-                adulto_responsable_dos,
-                personas_autorizadas_retiro,
-                quien_vive,
-                condicion_salud
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
+    mysql.connection.commit()
+    cursor.close()
 
-        cursor.execute(sql, (
-            datos["nombres"],
-            datos["apellidos"],
-            datos["dni"],
-            datos["fecha_nacimiento"] or None,
-            datos["domicilio"],
-            datos["escuela_anio"],
-            datos["retirar_solo"],
-            datos["adulto_responsable_uno"],
-            datos["adulto_responsable_dos"],
-            datos["personas_autorizadas_retiro"],
-            datos["quien_vive"],
-            datos["condicion_salud"]
-        ))
-
-        mysql.connection.commit()
-
-        return jsonify({
-            "resultado": "Destinatario registrado correctamente",
-            "dni": datos["dni"]
-        }), 201
-
-    except Exception as e:
-        mysql.connection.rollback()
-        print("Error al registrar destinatario:", e)
-
-        return jsonify({
-            "resultado": "No se pudo registrar el destinatario",
-            "error": str(e)
-        }), 400
-
-    finally:
-        cursor.close()
+    return jsonify({
+        "resultado": "Destinatario registrado"
+    })
 
 
-# =========================================================
-# TRAER TODOS LOS DESTINATARIOS
-# =========================================================
-
-@app.route("/traer_destinatarios", methods=["GET"])
-@cross_origin()
-def traer_destinatarios():
-
-    cursor = mysql.connection.cursor()
-
-    try:
-        sql = """
-            SELECT
-                nombres,
-                apellidos,
-                dni,
-                fecha_nacimiento,
-                domicilio,
-                escuela_anio,
-                retirar_solo,
-                adulto_responsable_uno,
-                adulto_responsable_dos,
-                personas_autorizadas_retiro,
-                quien_vive,
-                condicion_salud
-            FROM destinatarios
-            ORDER BY apellidos, nombres
-        """
-
-        cursor.execute(sql)
-        resultado = cursor.fetchall()
-
-        destinatarios = []
-
-        for fila in resultado:
-            destinatarios.append({
-                "nombres": fila[0],
-                "apellidos": fila[1],
-                "dni": fila[2],
-                "fecha_nacimiento": (
-                    fila[3].isoformat()
-                    if fila[3] is not None
-                    and hasattr(fila[3], "isoformat")
-                    else fila[3]
-                ),
-                "domicilio": fila[4],
-                "escuela_anio": fila[5],
-                "retirar_solo": fila[6],
-                "adulto_responsable_uno": fila[7],
-                "adulto_responsable_dos": fila[8],
-                "personas_autorizadas_retiro": fila[9],
-                "quien_vive": fila[10],
-                "condicion_salud": fila[11]
-            })
-
-        return jsonify(destinatarios), 200
-
-    except Exception as e:
-        print("Error al traer destinatarios:", e)
-
-        return jsonify({
-            "resultado": "No se pudieron traer los destinatarios",
-            "error": str(e)
-        }), 500
-
-    finally:
-        cursor.close()
-
-
-# =========================================================
-# ACTUALIZAR DESTINATARIO POR DNI
-# =========================================================
-
-@app.route("/actualizar_destinatario/<int:dni>", methods=["PUT"])
-@cross_origin()
-def actualizar_destinatario(dni):
-
-    datos = request.get_json(silent=True) or {}
-
-    columnas_permitidas = {
-        "nombres": "nombres",
-        "apellidos": "apellidos",
-        "fecha_nacimiento": "fecha_nacimiento",
-        "domicilio": "domicilio",
-        "escuela_anio": "escuela_anio",
-        "retirar_solo": "retirar_solo",
-        "adulto_responsable_uno": "adulto_responsable_uno",
-        "adulto_responsable_dos": "adulto_responsable_dos",
-        "personas_autorizadas_retiro": "personas_autorizadas_retiro",
-        "quien_vive": "quien_vive",
-        "condicion_salud": "condicion_salud"
-    }
-
-    campos = []
-    valores = []
-
-    for campo, columna in columnas_permitidas.items():
-        if campo in datos:
-            campos.append(f"{columna}=%s")
-            valores.append(datos[campo] or None)
-
-    if not campos:
-        return jsonify({
-            "resultado": "No se enviaron datos para actualizar"
-        }), 400
-
-    cursor = mysql.connection.cursor()
-
-    try:
-        cursor.execute(
-            "SELECT dni FROM destinatarios WHERE dni=%s",
-            (dni,)
-        )
-
-        if cursor.fetchone() is None:
-            return jsonify({
-                "resultado": "Destinatario no encontrado"
-            }), 404
-
-        sql = f"""
-            UPDATE destinatarios
-            SET {', '.join(campos)}
-            WHERE dni=%s
-        """
-
-        valores.append(dni)
-
-        cursor.execute(sql, tuple(valores))
-        mysql.connection.commit()
-
-        return jsonify({
-            "resultado": "Destinatario actualizado correctamente"
-        }), 200
-
-    except Exception as e:
-        mysql.connection.rollback()
-        print("Error al actualizar destinatario:", e)
-
-        return jsonify({
-            "resultado": "No se pudo actualizar el destinatario",
-            "error": str(e)
-        }), 400
-
-    finally:
-        cursor.close()
-
-
-# =========================================================
-# ELIMINAR DESTINATARIO POR DNI
-# =========================================================
-
-@app.route("/eliminar_destinatario/<int:dni>", methods=["DELETE"])
-@cross_origin()
-def eliminar_destinatario(dni):
-
-    cursor = mysql.connection.cursor()
-
-    try:
-        cursor.execute(
-            "DELETE FROM destinatarios WHERE dni=%s",
-            (dni,)
-        )
-
-        mysql.connection.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({
-                "resultado": "Destinatario no encontrado"
-            }), 404
-
-        return jsonify({
-            "resultado": "Destinatario eliminado correctamente"
-        }), 200
-
-    except Exception as e:
-        mysql.connection.rollback()
-        print("Error al eliminar destinatario:", e)
-
-        return jsonify({
-            "resultado": (
-                "No se pudo eliminar el destinatario. "
-                "Puede tener asistencias o asignaciones a proyectos."
-            ),
-            "error": str(e)
-        }), 400
-
-    finally:
-        cursor.close()
 ############################ TRAER DESTINATARIOS ############################
 
 @app.route("/traer_destinatarios", methods=["GET"])
