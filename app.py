@@ -1196,160 +1196,205 @@ def eliminar_anuncio(id):
         cursor.close()
 
 
+
 ####################### GESTION INVENTARIO ##############################
 
-############################ AÑADIR OBJETO ############################
+# =========================================================
+# AGREGAR OBJETO Y ASIGNARLO A UN PROYECTO
+# =========================================================
 
 @app.route("/nuevo_objeto", methods=["POST"])
 @cross_origin()
-def añadir_objeto():
+def anadir_objeto():
+    datos = request.get_json(silent=True) or {}
 
-    datos = request.json
+    nombre = str(datos.get("nombre", "")).strip()
+    cantidad = datos.get("cantidad")
+    id_proyecto = datos.get("proyectos_idproyecto")
 
-    nombre = datos["nombre"]
-    cantidad = datos["cantidad"]
-    proyectos_idproyecto = datos["proyectos_idproyecto"]
+    if not nombre or cantidad is None or id_proyecto is None:
+        return jsonify({
+            "error": "Nombre, cantidad y proyecto son obligatorios"
+        }), 400
+
+    try:
+        cantidad = int(cantidad)
+        id_proyecto = int(id_proyecto)
+
+        if cantidad < 0:
+            raise ValueError()
+
+    except (ValueError, TypeError):
+        return jsonify({
+            "error": "La cantidad o el ID del proyecto no son válidos"
+        }), 400
 
     cursor = mysql.connection.cursor()
 
     try:
-
-        # Crear objeto
-        sql_objeto = """
-        INSERT INTO inventario
-        (
-            idRegistro_objetos,
-            nombre,
-            cantidad
-        )
-        VALUES (%s,%s, %s)
-        """
-
+        # Comprobar que el proyecto exista.
         cursor.execute(
-            sql_objeto,
-            (
-                proyectos_idproyecto,
-                nombre,
-                cantidad
-            )
+            "SELECT idproyecto FROM proyectos WHERE idproyecto = %s",
+            (id_proyecto,)
+        )
+
+        if cursor.fetchone() is None:
+            return jsonify({
+                "error": "El proyecto seleccionado no existe"
+            }), 400
+
+        # Crear el objeto: MySQL genera su ID.
+        cursor.execute(
+            """
+            INSERT INTO inventario (nombre, cantidad)
+            VALUES (%s, %s)
+            """,
+            (nombre, cantidad)
         )
 
         id_objeto = cursor.lastrowid
 
+        # Vincular el objeto al proyecto.
+        cursor.execute(
+            """
+            INSERT INTO inventario_proyecto
+            (
+                inventario_idRegistro_objetos,
+                proyectos_idproyecto
+            )
+            VALUES (%s, %s)
+            """,
+            (id_objeto, id_proyecto)
+        )
+
         mysql.connection.commit()
 
         return jsonify({
-            "resultado": "Objeto agregado correctamente, id: " + proyectos_idproyecto,
-            "idRegistro_objetos": id_objeto
-        })
+            "resultado": "Objeto agregado correctamente",
+            "idRegistro_objetos": id_objeto,
+            "proyectos_idproyecto": id_proyecto
+        }), 201
 
     except Exception as e:
-
         mysql.connection.rollback()
+
+        app.logger.exception("Error al guardar objeto")
 
         return jsonify({
             "error": str(e)
         }), 400
 
     finally:
-
         cursor.close()
 
 
-############################ TRAER INVENTARIO DE UN PROYECTO ############################
+# =========================================================
+# TRAER INVENTARIO DE UN PROYECTO
+# =========================================================
 
-@app.route("/traer_inventario_proyecto/<int:idproyecto>", methods=["GET"])
+@app.route(
+    "/traer_inventario_proyecto/<int:idproyecto>",
+    methods=["GET"]
+)
 @cross_origin()
 def traer_inventario_proyecto(idproyecto):
-
-    sql = """
-    SELECT
-        i.idRegistro_objetos,
-        i.nombre,
-        i.cantidad,
-        ip.id,
-        p.idproyecto,
-        p.nombre
-    FROM inventario i
-
-    INNER JOIN inventario_proyecto ip
-        ON i.idRegistro_objetos = ip.inventario_idRegistro_objetos
-
-    INNER JOIN proyectos p
-        ON ip.proyectos_idproyecto = p.idproyecto
-
-    WHERE p.idproyecto=%s
-
-    ORDER BY i.nombre
-    """
-
     cursor = mysql.connection.cursor()
 
-    cursor.execute(
-        sql,
-        (idproyecto,)
-    )
+    try:
+        cursor.execute(
+            """
+            SELECT
+                i.idRegistro_objetos,
+                i.nombre,
+                i.cantidad,
+                p.idproyecto,
+                p.nombre
+            FROM inventario AS i
+            INNER JOIN inventario_proyecto AS ip
+                ON ip.inventario_idRegistro_objetos =
+                   i.idRegistro_objetos
+            INNER JOIN proyectos AS p
+                ON p.idproyecto = ip.proyectos_idproyecto
+            WHERE p.idproyecto = %s
+            ORDER BY i.nombre
+            """,
+            (idproyecto,)
+        )
 
-    resultado = cursor.fetchall()
+        resultado = cursor.fetchall()
 
-    cursor.close()
+        return jsonify([
+            {
+                "idRegistro_objetos": fila[0],
+                "nombre": fila[1],
+                "cantidad": fila[2],
+                "id_proyecto": fila[3],
+                "proyecto": fila[4]
+            }
+            for fila in resultado
+        ]), 200
 
-    inventario = []
+    except Exception as e:
+        app.logger.exception("Error al consultar inventario")
 
-    for i in resultado:
+        return jsonify({
+            "error": str(e)
+        }), 500
 
-        inventario.append({
-
-            "idRegistro_objetos": i[0],
-
-            "nombre": i[1],
-
-            "cantidad": i[2],
-
-            "idRelacion": i[3],
-
-            "idproyecto": i[4],
-
-            "proyecto": i[5]
-
-        })
-
-    return jsonify(inventario)
+    finally:
+        cursor.close()
 
 
-############################### TRAER INVENTARIO ############################
+# =========================================================
+# TRAER TODO EL INVENTARIO CON SUS PROYECTOS
+# =========================================================
 
 @app.route("/traer_inventario", methods=["GET"])
 @cross_origin()
 def traer_inventario():
-
-    sql = """
-    SELECT
-    idRegistro_objetos,
-    nombre,
-    cantidad,
-    idProyecto
-    FROM inventario
-    """
-
     cursor = mysql.connection.cursor()
-    cursor.execute(sql)
 
-    resultado = cursor.fetchall()
-    cursor.close()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                i.idRegistro_objetos,
+                i.nombre,
+                i.cantidad,
+                p.idproyecto,
+                p.nombre
+            FROM inventario AS i
+            LEFT JOIN inventario_proyecto AS ip
+                ON ip.inventario_idRegistro_objetos =
+                   i.idRegistro_objetos
+            LEFT JOIN proyectos AS p
+                ON p.idproyecto = ip.proyectos_idproyecto
+            ORDER BY i.nombre
+            """
+        )
 
-    inventario = []
+        resultado = cursor.fetchall()
 
-    for i in resultado:
+        return jsonify([
+            {
+                "idRegistro_objetos": fila[0],
+                "nombre": fila[1],
+                "cantidad": fila[2],
+                "id_proyecto": fila[3],
+                "proyecto": fila[4]
+            }
+            for fila in resultado
+        ]), 200
 
-        inventario.append({
-            "idRegistro_objetos": i[0],
-            "nombre": i[1],
-            "cantidad": i[2],
-            "id_proyecto": i[3]
-        })
+    except Exception as e:
+        app.logger.exception("Error al consultar todo el inventario")
 
-    return jsonify(inventario)
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+    finally:
+        cursor.close()
 
 
 ############################ ACTUALIZAR OBJETO ############################
@@ -1358,37 +1403,84 @@ def traer_inventario():
 @cross_origin()
 def actualizar_objeto(id):
 
-    datos = request.json
+    datos = request.get_json(silent=True) or {}
 
     campos = []
     valores = []
 
     if "nombre" in datos:
-        campos.append("nombre=%s")
-        valores.append(datos["nombre"])
+        nombre = str(datos["nombre"]).strip()
+
+        if not nombre:
+            return jsonify({
+                "error": "El nombre no puede estar vacío"
+            }), 400
+
+        campos.append("nombre = %s")
+        valores.append(nombre)
 
     if "cantidad" in datos:
-        campos.append("cantidad=%s")
-        valores.append(datos["cantidad"])
+        try:
+            cantidad = int(datos["cantidad"])
 
-    if len(campos) == 0:
+            if cantidad < 0:
+                raise ValueError()
+
+        except (ValueError, TypeError):
+            return jsonify({
+                "error": "La cantidad debe ser mayor o igual a cero"
+            }), 400
+
+        campos.append("cantidad = %s")
+        valores.append(cantidad)
+
+    if not campos:
         return jsonify({
             "resultado": "No se enviaron datos para actualizar"
         }), 400
 
-    sql = f"UPDATE inventario SET {', '.join(campos)} WHERE idRegistro_objetos=%s"
-
     valores.append(id)
 
+    sql = f"""
+    UPDATE inventario
+    SET {', '.join(campos)}
+    WHERE idRegistro_objetos = %s
+    """
+
     cursor = mysql.connection.cursor()
-    cursor.execute(sql, tuple(valores))
 
-    mysql.connection.commit()
-    cursor.close()
+    try:
+        cursor.execute(sql, tuple(valores))
+        mysql.connection.commit()
 
-    return jsonify({
-        "resultado": "Objeto actualizado correctamente"
-    })
+        if cursor.rowcount == 0:
+            cursor.execute(
+                """
+                SELECT idRegistro_objetos
+                FROM inventario
+                WHERE idRegistro_objetos = %s
+                """,
+                (id,)
+            )
+
+            if cursor.fetchone() is None:
+                return jsonify({
+                    "error": "Objeto no encontrado"
+                }), 404
+
+        return jsonify({
+            "resultado": "Objeto actualizado correctamente"
+        }), 200
+
+    except Exception as e:
+        mysql.connection.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 400
+
+    finally:
+        cursor.close()
 
 
 ############################ ELIMINAR OBJETO ############################
@@ -1397,17 +1489,49 @@ def actualizar_objeto(id):
 @cross_origin()
 def eliminar_objeto(id):
 
-    sql = "DELETE FROM inventario WHERE idRegistro_objetos=%s"
-
     cursor = mysql.connection.cursor()
-    cursor.execute(sql, (id,))
 
-    mysql.connection.commit()
-    cursor.close()
+    try:
+        # Primero eliminar las relaciones del objeto.
+        cursor.execute(
+            """
+            DELETE FROM inventario_proyecto
+            WHERE inventario_id = %s
+            """,
+            (id,)
+        )
 
-    return jsonify({
-        "resultado": "Objeto eliminado correctamente"
-    })
+        # Después eliminar el objeto.
+        cursor.execute(
+            """
+            DELETE FROM inventario
+            WHERE idRegistro_objetos = %s
+            """,
+            (id,)
+        )
+
+        if cursor.rowcount == 0:
+            mysql.connection.rollback()
+
+            return jsonify({
+                "error": "Objeto no encontrado"
+            }), 404
+
+        mysql.connection.commit()
+
+        return jsonify({
+            "resultado": "Objeto eliminado correctamente"
+        }), 200
+
+    except Exception as e:
+        mysql.connection.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 400
+
+    finally:
+        cursor.close()
 
 
 ####################### GESTION DESTINATARIOS##############################
