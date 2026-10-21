@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from uuid import uuid4
 
 import os
+from almacenamiento_imagenes import preparar_carpeta_imagenes
 # para subir archivos
 
 #from werkzeug.utils import secure_filename
@@ -27,20 +28,10 @@ mysql = MySQL(app)
 # IMAGENES DE ANUNCIOS
 # =========================================================
 
-UPLOAD_FOLDER = os.path.join(
-    os.path.dirname(
-        os.path.abspath(__file__)
-    ),
-    "uploads"
-)
-
-os.makedirs(
-    UPLOAD_FOLDER,
-    exist_ok=True
-)
-
-app.config["UPLOAD_FOLDER"] = (
-    UPLOAD_FOLDER
+# Railway monta el volumen en RAILWAY_VOLUME_MOUNT_PATH.
+# UPLOAD_FOLDER permite elegir explícitamente una carpeta persistente.
+app.config["UPLOAD_FOLDER"] = preparar_carpeta_imagenes(
+    os.path.dirname(os.path.abspath(__file__))
 )
 
 app.config["MAX_CONTENT_LENGTH"] = (
@@ -587,59 +578,52 @@ def insertar_anuncio():
         }), 400
 
 
-    if (
-        imagen is None
-        or imagen.filename == ""
-    ):
+    nombre_archivo = None
+    ruta_imagen = None
 
-        return jsonify({
-            "resultado":
-                "Debe seleccionar una imagen"
-        }), 400
-
-
-    if not extension_permitida(
-        imagen.filename
-    ):
-
-        return jsonify({
-            "resultado":
-                "Formato de imagen no permitido"
-        }), 400
-
-
-    # =========================
-    # GUARDAR IMAGEN
-    # =========================
-
-    nombre_original = (
-        secure_filename(
+    if imagen is not None and imagen.filename:
+        if not extension_permitida(
             imagen.filename
+        ):
+
+            return jsonify({
+                "resultado":
+                    "Formato de imagen no permitido"
+            }), 400
+
+
+        # =========================
+        # GUARDAR IMAGEN
+        # =========================
+
+        nombre_original = (
+            secure_filename(
+                imagen.filename
+            )
         )
-    )
 
 
-    extension = (
-        nombre_original
-        .rsplit(".", 1)[1]
-        .lower()
-    )
+        extension = (
+            nombre_original
+            .rsplit(".", 1)[1]
+            .lower()
+        )
 
 
-    nombre_archivo = (
-        f"{uuid4().hex}.{extension}"
-    )
+        nombre_archivo = (
+            f"{uuid4().hex}.{extension}"
+        )
 
 
-    ruta_imagen = os.path.join(
-        app.config["UPLOAD_FOLDER"],
-        nombre_archivo
-    )
+        ruta_imagen = os.path.join(
+            app.config["UPLOAD_FOLDER"],
+            nombre_archivo
+        )
 
 
-    imagen.save(
-        ruta_imagen
-    )
+        imagen.save(
+            ruta_imagen
+        )
 
 
     # =========================
@@ -697,7 +681,7 @@ def insertar_anuncio():
         mysql.connection.rollback()
 
 
-        if os.path.exists(
+        if ruta_imagen is not None and os.path.exists(
             ruta_imagen
         ):
 
