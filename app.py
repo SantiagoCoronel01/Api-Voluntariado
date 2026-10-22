@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask.helpers import make_response
 from flask_mysqldb import MySQL
 from flask_cors import CORS, cross_origin
@@ -11,19 +11,28 @@ from werkzeug.utils import secure_filename
 from uuid import uuid4
 
 import os
+import asistencias
+import cuentas
+import consultas
+from anuncios_validacion import validar_anuncio
+from idempotencia import idempotente, confirmar_transaccion
 from almacenamiento_imagenes import preparar_carpeta_imagenes
+from seguridad import emitir_token, instalar_seguridad, GESTORES, ROLES, normalizar_rol
 # para subir archivos
 
 #from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 app.config["MYSQL_HOST"] = os.environ.get("DB_HOST")
 app.config["MYSQL_USER"] = os.environ.get("DB_USER")
 app.config["MYSQL_PASSWORD"] = os.environ.get("DB_PASSWORD")
 app.config["MYSQL_DB"] = os.environ.get("DB_NAME")
+app.config["MYSQL_CHARSET"] = "utf8mb4"
 
 mysql = MySQL(app)
+instalar_seguridad(app, mysql)
 # =========================================================
 # IMAGENES DE ANUNCIOS
 # =========================================================
@@ -77,7 +86,7 @@ CORS(
             ],
             "allow_headers": [
                 "Content-Type",
-                "Authorization"
+                "Authorization", "Idempotency-Key"
             ]
         }
     }
@@ -195,79 +204,7 @@ def actualizar_usuario(id):
 @cross_origin()
 def insertar_usuario_voluntariado():
 
-    datos = request.json
-
-    nombre = datos.get("nombre", "").strip()
-    apellido = datos.get("apellido", "").strip()
-    mail = datos.get("mail", "").strip()
-    clave = datos.get("clave", "").strip()
-    perfil = datos.get("perfil", "").strip()
-
-    # Comprobar campos obligatorios
-
-    if (
-        nombre == "" or
-        apellido == "" or
-        mail == "" or
-        clave == "" or
-        perfil == ""
-    ):
-
-        return jsonify({
-            "resultado": "Todos los campos son obligatorios"
-        }), 400
-
-    cursor = mysql.connection.cursor()
-
-    # Comprobar si el correo ya existe
-
-    sql = """
-    SELECT idusuario
-    FROM usuario
-    WHERE mail=%s
-    """
-
-    cursor.execute(sql, (mail,))
-
-    usuario_existente = cursor.fetchone()
-
-    if usuario_existente is not None:
-
-        cursor.close()
-
-        return jsonify({
-            "resultado": "El correo ya está registrado"
-        }), 409
-
-    # Crear usuario
-
-    sql = """
-    INSERT INTO usuario
-    (
-        nombre,
-        apellido,
-        mail,
-        clave,
-        perfil,
-        activo
-    )
-    VALUES (%s, %s, %s, %s, %s, 0)
-    """
-
-    cursor.execute(sql, (
-        nombre,
-        apellido,
-        mail,
-        clave,
-        perfil
-    ))
-
-    mysql.connection.commit()
-    cursor.close()
-
-    return jsonify({
-        "resultado": "Usuario registrado. Pendiente de activación."
-    })
+    return cuentas.registrar(mysql)
 
 
 ###TRAER USUARIOS
@@ -298,7 +235,6 @@ def listar_usuarios_voluntariado():
             "nombre": i[1],
             "apellido": i[2],
             "mail": i[3],
-            "clave": i[4],
             "perfil": i[5],
             "activo": i[6]
         })
@@ -311,65 +247,21 @@ def listar_usuarios_voluntariado():
 @cross_origin()
 def desactivar_usuario(id):
 
-    sql = "UPDATE usuario SET activo = 0 WHERE idusuario = %s"
-
-    cursor = mysql.connection.cursor()
-    cursor.execute(sql, (id,))
-    mysql.connection.commit()
-    cursor.close()
-
-    return jsonify({"resultado": "Usuario desactivado"})
+    return cuentas.modificar(mysql, id, estado=0)
 
 ### ELIMINAR USUARIO VOLUNTARIADO
 @app.route("/eliminar_usuario_voluntariado/<int:id>", methods=["DELETE"])
 @cross_origin()
 def eliminar_usuario_voluntariado(id):
 
-    cursor = mysql.connection.cursor()
-
-    try:
-
-        sql = "DELETE FROM usuario WHERE idusuario=%s"
-
-        cursor.execute(sql, (id,))
-
-        mysql.connection.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({
-                "resultado": "Usuario no encontrado"
-            }), 404
-
-        return jsonify({
-            "resultado": "Usuario eliminado correctamente"
-        }), 200
-
-    except Exception as e:
-
-        mysql.connection.rollback()
-
-        return jsonify({
-            "resultado": "No se pudo eliminar el usuario",
-            "error": str(e)
-        }), 400
-
-    finally:
-
-        cursor.close()
+    return cuentas.modificar(mysql, id, eliminar=True)
 
 ### ACTIVAR USUARIO
 @app.route("/activar_usuario/<id>", methods=["PUT"])
 @cross_origin()
 def activar_usuario(id):
 
-    sql = "UPDATE usuario SET activo = 1 WHERE idusuario = %s"
-
-    cursor = mysql.connection.cursor()
-    cursor.execute(sql, (id,))
-    mysql.connection.commit()
-    cursor.close()
-
-    return jsonify({"resultado": "Usuario activado"})
+    return cuentas.modificar(mysql, id, estado=1)
 
 
 ### ACTUALIZAR USUARIO
@@ -377,49 +269,7 @@ def activar_usuario(id):
 @cross_origin()
 def actualizar_usuario_voluntariado(id):
 
-    datos = request.json
-
-    campos = []
-    valores = []
-
-    if "nombre" in datos:
-        campos.append("nombre=%s")
-        valores.append(datos["nombre"])
-
-    if "apellido" in datos:
-        campos.append("apellido=%s")
-        valores.append(datos["apellido"])
-
-    if "mail" in datos:
-        campos.append("mail=%s")
-        valores.append(datos["mail"])
-
-    if "clave" in datos:
-        campos.append("clave=%s")
-        valores.append(datos["clave"])
-
-    if "perfil" in datos:
-        campos.append("perfil=%s")
-        valores.append(datos["perfil"])
-
-    if len(campos) == 0:
-        return jsonify({
-            "resultado": "No se enviaron datos para actualizar"
-        }), 400
-
-    sql = f"UPDATE usuario SET {', '.join(campos)} WHERE idusuario=%s"
-
-    valores.append(id)
-
-    cursor = mysql.connection.cursor()
-    cursor.execute(sql, tuple(valores))
-
-    mysql.connection.commit()
-    cursor.close()
-
-    return jsonify({
-        "resultado": "Usuario actualizado correctamente"
-    })
+    return cuentas.modificar(mysql, id)
 
 
 ############################ INICIAR SESIÓN ############################
@@ -428,75 +278,7 @@ def actualizar_usuario_voluntariado(id):
 @cross_origin()
 def iniciar_sesion():
 
-    mail = request.json["mail"]
-    clave = request.json["clave"]
-
-    cursor = mysql.connection.cursor()
-
-    sql = """
-    SELECT
-        idusuario,
-        nombre,
-        apellido,
-        mail,
-        clave,
-        perfil,
-        activo
-    FROM usuario
-    WHERE mail=%s
-    """
-
-    cursor.execute(sql, (mail,))
-
-    resultado = cursor.fetchone()
-
-    if resultado is None:
-
-        cursor.close()
-
-        return jsonify({
-            "resultado": "El usuario no existe"
-        }), 404
-
-    if resultado[4] != clave:
-
-        cursor.close()
-
-        return jsonify({
-            "resultado": "La contraseña es incorrecta"
-        }), 401
-
-    if resultado[6] == 0:
-
-        cursor.close()
-
-        return jsonify({
-            "resultado": "El usuario no está activo"
-        }), 403
-
-    cursor.close()
-
-    return jsonify({
-
-        "resultado": "Inicio de sesión correcto",
-
-        "usuario": {
-
-            "idusuario": resultado[0],
-
-            "nombre": resultado[1],
-
-            "apellido": resultado[2],
-
-            "mail": resultado[3],
-
-            "perfil": resultado[5],
-
-            "activo": resultado[6]
-
-        }
-
-    }), 200
+    return cuentas.iniciar(mysql)
 
 
 ####################### GESTION ANUNCIOS ##############################
@@ -531,6 +313,11 @@ def obtener_imagen(
 @cross_origin()
 def insertar_anuncio():
 
+    try:
+        validar_anuncio(request.form)
+    except ValueError as error:
+        return jsonify(resultado=str(error)), 400
+
     titulo = request.form.get(
         "titulo",
         ""
@@ -551,9 +338,7 @@ def insertar_anuncio():
         ""
     ).strip()
 
-    usuario = request.form.get(
-        "usuario"
-    )
+    usuario = g.usuario_actual["idusuario"]
 
     imagen = request.files.get(
         "img"
@@ -662,7 +447,7 @@ def insertar_anuncio():
         )
 
 
-        mysql.connection.commit()
+        confirmar_transaccion(mysql)
 
 
         return jsonify({
@@ -696,7 +481,7 @@ def insertar_anuncio():
                 "No se pudo crear el anuncio",
 
             "error":
-                str(e)
+                "No se pudo completar la operación. Intentá nuevamente."
 
         }), 400
 
@@ -717,70 +502,7 @@ def insertar_anuncio():
 @cross_origin()
 def listar_anuncios():
 
-    sql = """
-    SELECT
-        idAnuncios,
-        titulo,
-        descripcion,
-        img,
-        fecha_creado,
-        fecha_evento,
-        tipo_evento,
-        usuario_idusuario
-    FROM anuncios
-    ORDER BY fecha_creado DESC
-    """
-
-
-    cursor = mysql.connection.cursor()
-
-    cursor.execute(
-        sql
-    )
-
-
-    resultado = cursor.fetchall()
-
-    cursor.close()
-
-
-    anuncios = []
-
-
-    for i in resultado:
-
-        anuncios.append({
-
-            "idAnuncios":
-                i[0],
-
-            "titulo":
-                i[1],
-
-            "descripcion":
-                i[2],
-
-            "img":
-                i[3],
-
-            "fecha_creado":
-                i[4],
-
-            "fecha_evento":
-                i[5],
-
-            "tipo_evento":
-                i[6],
-
-            "usuario":
-                i[7]
-
-        })
-
-
-    return jsonify(
-        anuncios
-    )
+    return consultas.anuncios(mysql)
 
 
 # =========================================================
@@ -793,6 +515,11 @@ def listar_anuncios():
 )
 @cross_origin()
 def actualizar_anuncio(id):
+
+    try:
+        validar_anuncio(request.form, parcial=True)
+    except ValueError as error:
+        return jsonify(resultado=str(error)), 400
 
     cursor = mysql.connection.cursor()
 
@@ -1068,7 +795,7 @@ def actualizar_anuncio(id):
                 "No se pudo actualizar el anuncio",
 
             "error":
-                str(e)
+                "No se pudo completar la operación. Intentá nuevamente."
 
         }), 400
 
@@ -1170,7 +897,7 @@ def eliminar_anuncio(id):
                 "No se pudo eliminar el anuncio",
 
             "error":
-                str(e)
+                "No se pudo completar la operación. Intentá nuevamente."
 
         }), 400
 
@@ -1193,7 +920,10 @@ def eliminar_anuncio(id):
 def anadir_objeto():
     datos = request.get_json(silent=True) or {}
 
-    nombre = str(datos.get("nombre", "")).strip()
+    nombre = datos.get("nombre", "")
+    if not isinstance(nombre, str) or not 1 <= len(nombre.strip()) <= 45:
+        return jsonify(error="El nombre debe tener entre 1 y 45 caracteres."), 400
+    nombre = nombre.strip()
     cantidad = datos.get("cantidad")
     id_proyecto = datos.get("proyectos_idproyecto")
 
@@ -1203,8 +933,8 @@ def anadir_objeto():
         }), 400
 
     try:
-        cantidad = int(cantidad)
-        id_proyecto = int(id_proyecto)
+        cantidad = cuentas.entero(cantidad)
+        id_proyecto = cuentas.entero(id_proyecto, 1)
 
         if cantidad < 0:
             raise ValueError()
@@ -1261,7 +991,7 @@ def anadir_objeto():
         app.logger.exception("Error al guardar objeto")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -1382,7 +1112,7 @@ def traer_inventario():
         )
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -1394,84 +1124,7 @@ def traer_inventario():
 @cross_origin()
 def actualizar_objeto(id):
 
-    datos = request.get_json(silent=True) or {}
-
-    campos = []
-    valores = []
-
-    if "nombre" in datos:
-        nombre = str(datos["nombre"]).strip()
-
-        if not nombre:
-            return jsonify({
-                "error": "El nombre no puede estar vacío"
-            }), 400
-
-        campos.append("nombre = %s")
-        valores.append(nombre)
-
-    if "cantidad" in datos:
-        try:
-            cantidad = int(datos["cantidad"])
-
-            if cantidad < 0:
-                raise ValueError()
-
-        except (ValueError, TypeError):
-            return jsonify({
-                "error": "La cantidad debe ser mayor o igual a cero"
-            }), 400
-
-        campos.append("cantidad = %s")
-        valores.append(cantidad)
-
-    if not campos:
-        return jsonify({
-            "resultado": "No se enviaron datos para actualizar"
-        }), 400
-
-    valores.append(id)
-
-    sql = f"""
-    UPDATE inventario
-    SET {', '.join(campos)}
-    WHERE idRegistro_objetos = %s
-    """
-
-    cursor = mysql.connection.cursor()
-
-    try:
-        cursor.execute(sql, tuple(valores))
-        mysql.connection.commit()
-
-        if cursor.rowcount == 0:
-            cursor.execute(
-                """
-                SELECT idRegistro_objetos
-                FROM inventario
-                WHERE idRegistro_objetos = %s
-                """,
-                (id,)
-            )
-
-            if cursor.fetchone() is None:
-                return jsonify({
-                    "error": "Objeto no encontrado"
-                }), 404
-
-        return jsonify({
-            "resultado": "Objeto actualizado correctamente"
-        }), 200
-
-    except Exception as e:
-        mysql.connection.rollback()
-
-        return jsonify({
-            "error": str(e)
-        }), 400
-
-    finally:
-        cursor.close()
+    return consultas.actualizar_objeto(mysql, id)
 
 
 ############################ ELIMINAR OBJETO ############################
@@ -1518,7 +1171,7 @@ def eliminar_objeto(id):
         mysql.connection.rollback()
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 400
 
     finally:
@@ -1592,7 +1245,7 @@ def registrar_destinatario():
     except Exception as e:
         mysql.connection.rollback()
         app.logger.exception("Error al crear destinatario")
-        return jsonify({"resultado": "No se pudo crear el destinatario", "error": str(e)}), 500
+        return jsonify({"resultado": "No se pudo crear el destinatario", "error": "No se pudo completar la operación. Intentá nuevamente."}), 500
     finally:
         cursor.close()
 
@@ -1732,7 +1385,7 @@ def actualizar_destinatario(dni):
 
         return jsonify({
             "resultado": "No se pudo actualizar el destinatario",
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -1805,7 +1458,7 @@ def agregar_proyecto():
 
         return jsonify({
             "resultado": "No se pudo agregar el proyecto",
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 400
 
     finally:
@@ -1846,7 +1499,7 @@ def traer_proyectos():
 
         return jsonify({
             "resultado": "No se pudieron traer los proyectos",
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -1933,7 +1586,7 @@ def actualizar_proyecto(id):
 
         return jsonify({
             "resultado": "No se pudo actualizar el proyecto",
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 400
 
     finally:
@@ -1973,7 +1626,7 @@ def eliminar_proyecto(id):
                 "No se pudo eliminar el proyecto. "
                 "Puede tener destinatarios u otros registros asociados."
             ),
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 400
 
     finally:
@@ -2070,7 +1723,7 @@ def traer_destinatarios_proyecto(idproyecto):
         )
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2153,8 +1806,12 @@ def nueva_sesion():
 
     datos = request.get_json(silent=True) or {}
 
-    proyectos_idproyecto = datos.get("proyectos_idproyecto")
-    usuario_idusuario = datos.get("usuario_idusuario")
+    try:
+        proyectos_idproyecto = cuentas.entero(datos.get("proyectos_idproyecto"), 1)
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    # The author comes from the signed session, never from a client-supplied ID.
+    usuario_idusuario = g.usuario_actual["idusuario"]
 
     if not proyectos_idproyecto or not usuario_idusuario:
         return jsonify({
@@ -2203,7 +1860,7 @@ def nueva_sesion():
 
         id_sesion = cursor.lastrowid
 
-        mysql.connection.commit()
+        confirmar_transaccion(mysql)
 
         return jsonify({
             "resultado": "Sesión creada correctamente",
@@ -2215,7 +1872,7 @@ def nueva_sesion():
         app.logger.exception("Error al crear sesión de asistencia")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2233,6 +1890,9 @@ def traer_sesiones():
     cursor = mysql.connection.cursor()
 
     try:
+        proyecto = request.args.get("proyecto")
+        filtro = " WHERE s.proyectos_idproyecto = %s " if proyecto else ""
+        valores = (cuentas.entero(proyecto, 1),) if proyecto else ()
         cursor.execute(
             """
             SELECT
@@ -2247,8 +1907,7 @@ def traer_sesiones():
                 ON s.proyectos_idproyecto = p.idproyecto
             INNER JOIN usuario u
                 ON s.usuario_idusuario = u.idusuario
-            ORDER BY s.fecha DESC
-            """
+            """ + filtro + " ORDER BY s.fecha DESC,s.idsesion DESC", valores
         )
 
         filas = cursor.fetchall()
@@ -2267,11 +1926,13 @@ def traer_sesiones():
 
         return jsonify(sesiones), 200
 
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
     except Exception as e:
         app.logger.exception("Error al consultar sesiones")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2328,7 +1989,7 @@ def traer_sesion(idsesion):
         app.logger.exception("Error al consultar sesión")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2343,121 +2004,7 @@ def traer_sesion(idsesion):
 @cross_origin()
 def guardar_asistencia():
 
-    datos = request.get_json(silent=True) or {}
-
-    id_sesion = datos.get("sesiones_idsesion")
-    asistencias = datos.get("asistencias")
-
-    if not id_sesion or not isinstance(asistencias, list):
-        return jsonify({
-            "error": "La sesión y la lista de asistencias son obligatorias"
-        }), 400
-
-    if len(asistencias) == 0:
-        return jsonify({
-            "error": "No hay destinatarios para registrar"
-        }), 400
-
-    cursor = mysql.connection.cursor()
-
-    try:
-        # Comprobar que la sesión exista.
-        cursor.execute(
-            """
-            SELECT idsesion, proyectos_idproyecto
-            FROM sesiones_asistencia
-            WHERE idsesion = %s
-            """,
-            (id_sesion,)
-        )
-
-        sesion = cursor.fetchone()
-
-        if sesion is None:
-            return jsonify({
-                "error": "La sesión no existe"
-            }), 404
-
-        id_proyecto = sesion[1]
-
-        # Evitar guardar dos veces al mismo destinatario
-        # en una misma sesión.
-        dnis_procesados = set()
-
-        for item in asistencias:
-
-            dni = item.get("dni")
-            presente = item.get("presente")
-
-            if dni is None or presente not in (0, 1, False, True):
-                raise ValueError(
-                    "Cada asistencia debe tener un DNI y un estado válido"
-                )
-
-            dni = int(dni)
-            presente = int(presente)
-
-            if dni in dnis_procesados:
-                raise ValueError(
-                    f"El destinatario con DNI {dni} está repetido"
-                )
-
-            dnis_procesados.add(dni)
-
-            # Comprobar que el destinatario esté asignado
-            # al proyecto de la sesión.
-            cursor.execute(
-                """
-                SELECT d.dni
-                FROM destinatarios d
-                INNER JOIN destinatario_proyecto dp
-                    ON dp.destinatarios_dni = d.dni
-                WHERE d.dni = %s
-                  AND dp.proyectos_idproyecto = %s
-                """,
-                (dni, id_proyecto)
-            )
-
-            if cursor.fetchone() is None:
-                raise ValueError(
-                    f"El DNI {dni} no está asignado al proyecto de la sesión"
-                )
-
-            # Guardar el estado del destinatario.
-            cursor.execute(
-                """
-                INSERT INTO asistencia
-                    (sesiones_idsesion, destinatarios_dni, presente)
-                VALUES (%s, %s, %s)
-                """,
-                (id_sesion, dni, presente)
-            )
-
-        mysql.connection.commit()
-
-        return jsonify({
-            "resultado": "Asistencia guardada correctamente",
-            "idsesion": id_sesion,
-            "cantidad_registrada": len(asistencias)
-        }), 201
-
-    except (ValueError, TypeError) as e:
-        mysql.connection.rollback()
-
-        return jsonify({
-            "error": str(e)
-        }), 400
-
-    except Exception as e:
-        mysql.connection.rollback()
-        app.logger.exception("Error al guardar asistencia")
-
-        return jsonify({
-            "error": str(e)
-        }), 500
-
-    finally:
-        cursor.close()
+    return asistencias.guardar(mysql)
 
 
 # =========================================================
@@ -2508,7 +2055,7 @@ def traer_asistencias(idsesion):
         app.logger.exception("Error al consultar asistencias")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2571,7 +2118,7 @@ def actualizar_asistencia(id):
         app.logger.exception("Error al actualizar asistencia")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2612,7 +2159,7 @@ def eliminar_asistencia(id):
         app.logger.exception("Error al eliminar asistencia")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2673,7 +2220,7 @@ def eliminar_sesion(idsesion):
         app.logger.exception("Error al eliminar sesión")
 
         return jsonify({
-            "error": str(e)
+            "error": "No se pudo completar la operación. Intentá nuevamente."
         }), 500
 
     finally:
@@ -2732,6 +2279,20 @@ def traer_asistencias(idsesion):
 # =========================================================
 # INICIO
 # =========================================================
+
+
+@app.get("/traer_asignaciones")
+def traer_asignaciones():
+    return consultas.asignaciones(mysql)
+
+@app.before_request
+def validar_cuerpo_json():
+    if request.is_json and request.method in {"POST", "PUT", "DELETE"}:
+        if not isinstance(request.get_json(silent=True), dict):
+            return jsonify(error="Enviá un objeto JSON válido."), 400
+
+app.view_functions["insertar_anuncio"] = idempotente(mysql, "crear_anuncio")(app.view_functions["insertar_anuncio"])
+app.view_functions["nueva_sesion"] = idempotente(mysql, "crear_asistencia")(app.view_functions["nueva_sesion"])
 
 if __name__ == "__main__":
 
