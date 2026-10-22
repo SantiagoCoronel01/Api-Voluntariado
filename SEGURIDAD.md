@@ -82,6 +82,8 @@ Esta migración no se ejecuta al iniciar la API. No se aplicó a Railway durante
 
 ## Contratos actualizados
 
+Los tipos vigentes son Donaciones, Actividades e Información. Medio Ambiente se retiró: la API rechaza ese valor en altas y cambios de tipo, y normaliza a Información los anuncios antiguos al consultarlos. Para actualizar su almacenamiento después de un respaldo, ejecutar por separado `migrations/002_retirar_medio_ambiente.sql` en la base seleccionada. El archivo contiene una única sentencia UPDATE y puede ejecutarse en el editor de Railway. La consulta de anuncios conserva esta compatibilidad para los registros todavía no migrados. Desplegar juntos `consultas.py` y `anuncios_validacion.py` con el resto de la API.
+
 - Anuncios: descripción obligatoria de hasta **5.000 caracteres** y título de hasta 150. Las fechas representan la hora nominal del evento, sin conversión UTC al editar. El texto se muestra como texto, con saltos de línea; no se interpreta como HTML.
 - Creación de anuncio y de sesión de asistencia: la app envía `Idempotency-Key`, una clave aleatoria por intento lógico. Reintentar con la misma clave y contenido reutiliza la respuesta persistida; cambiar el contenido manteniendo la clave devuelve 409. La clave está vinculada al usuario y al tipo de operación. La transacción guarda juntos el recurso y su respuesta. Sin cabecera se conserva la compatibilidad del endpoint, pero no esa protección.
 - Inventario: los botones usan `{ "delta": 1 }` o `{ "delta": -1 }`. Una edición absoluta debe enviar `{ "cantidad": 20, "cantidad_anterior": 12 }`; si ya cambió la cantidad, devuelve 409. Se rechazan decimales, booleanos, negativos y desbordamientos. La respuesta devuelve la cantidad resultante.

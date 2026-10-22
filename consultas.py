@@ -2,6 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import current_app, jsonify, request
 from cuentas import entero
+from anuncios_validacion import normalizar_tipo_evento
 
 
 def anuncios(mysql):
@@ -9,9 +10,13 @@ def anuncios(mysql):
     try:
         where, valores = [], []
         proximas = request.args.get("proximas") == "1"
-        if proximas:
+        vigentes = request.args.get("vigentes") == "1"
+        if proximas or vigentes:
             where.append("fecha_evento >= %s")
-            valores.append(datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).replace(tzinfo=None))
+            desde = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).replace(tzinfo=None)
+            if vigentes and not proximas:
+                desde = desde.replace(hour=0, minute=0, second=0, microsecond=0)
+            valores.append(desde)
         sql = "SELECT idAnuncios,titulo,descripcion,img,fecha_creado,fecha_evento,tipo_evento,usuario_idusuario FROM anuncios"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -19,11 +24,12 @@ def anuncios(mysql):
             sql += " ORDER BY fecha_evento,idAnuncios LIMIT 3"
         else:
             destino = request.args.get("anuncio")
+            orden = "fecha_evento,idAnuncios" if vigentes else "fecha_creado DESC,idAnuncios DESC"
             if destino:
-                sql += " ORDER BY (idAnuncios=%s) DESC,fecha_creado DESC,idAnuncios DESC"
+                sql += " ORDER BY (idAnuncios=%s) DESC," + orden
                 valores.append(entero(destino, 1))
             else:
-                sql += " ORDER BY fecha_creado DESC,idAnuncios DESC"
+                sql += " ORDER BY " + orden
             if request.args.get("pagina"):
                 pagina = entero(request.args["pagina"], 1, 1000000)
                 limite = entero(request.args.get("limite", 40), 1, 100)
@@ -31,7 +37,10 @@ def anuncios(mysql):
                 valores += [limite, (pagina - 1) * limite]
         cursor.execute(sql, tuple(valores))
         campos = ("idAnuncios", "titulo", "descripcion", "img", "fecha_creado", "fecha_evento", "tipo_evento", "usuario")
-        return jsonify([dict(zip(campos, fila)) for fila in cursor.fetchall()])
+        anuncios = [dict(zip(campos, fila)) for fila in cursor.fetchall()]
+        for anuncio in anuncios:
+            anuncio["tipo_evento"] = normalizar_tipo_evento(anuncio["tipo_evento"])
+        return jsonify(anuncios)
     except ValueError as error:
         return jsonify(resultado=str(error)), 400
     except Exception:

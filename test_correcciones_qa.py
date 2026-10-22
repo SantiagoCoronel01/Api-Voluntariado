@@ -1,7 +1,9 @@
 """Regressions exercise Flask routes and transaction boundaries with a DB double."""
 import io
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from test_seguridad import SeguridadTest
 from credenciales import crear_hash, comprobar_clave, validar_clave
 from migrar_credenciales import migrar
@@ -146,6 +148,53 @@ class CorreccionesQA(SeguridadTest):
         sql = self.cursor.execute.call_args.args[0]
         self.assertIn('fecha_evento >= %s', sql)
         self.assertIn('LIMIT 3', sql)
+
+    def test_anuncios_antiguos_se_consultan_como_informacion_sin_modificar_la_base(self):
+        self.cursor.fetchall.return_value = [(15, 'Jornada anterior', 'Se conserva', None,
+                                             '2026-10-22', '2026-10-24 17:00:00', 'Medio Ambiente', 9)]
+        r = self.cliente.get('/traer_anuncios', headers=self.headers)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json[0]['idAnuncios'], 15)
+        self.assertEqual(r.json[0]['tipo_evento'], 'Información')
+        self.assertFalse(any('UPDATE' in c.args[0] for c in self.cursor.execute.call_args_list))
+        self.mysql.connection.commit.assert_not_called()
+
+    def test_anuncios_vigentes_filtran_desde_hoy_antes_de_paginar(self):
+        self.cursor.fetchall.return_value = []
+        ahora = datetime(2026, 10, 22, 17, 30, tzinfo=ZoneInfo('America/Argentina/Buenos_Aires'))
+        with patch('consultas.datetime') as reloj:
+            reloj.now.return_value = ahora
+            r = self.cliente.get('/traer_anuncios?vigentes=1&pagina=2&limite=40', headers=self.headers)
+        self.assertEqual(r.status_code, 200)
+        sql, valores = self.cursor.execute.call_args.args
+        self.assertIn('WHERE fecha_evento >= %s ORDER BY fecha_evento,idAnuncios LIMIT %s OFFSET %s', sql)
+        self.assertEqual(valores, (datetime(2026, 10, 22), 40, 40))
+        self.assertNotIn('LIMIT 3', sql)
+        reloj.now.assert_called_once_with(ZoneInfo('America/Argentina/Buenos_Aires'))
+
+    def test_enlace_a_anuncio_no_omite_el_filtro_de_dias_anteriores(self):
+        self.cursor.fetchall.return_value = []
+        r = self.cliente.get('/traer_anuncios?vigentes=1&anuncio=12&pagina=1&limite=40', headers=self.headers)
+        self.assertEqual(r.status_code, 200)
+        sql, valores = self.cursor.execute.call_args.args
+        self.assertIn('WHERE fecha_evento >= %s ORDER BY (idAnuncios=%s) DESC,fecha_evento,idAnuncios', sql)
+        self.assertEqual(valores[1:], (12, 40, 0))
+
+    def test_home_conserva_el_filtro_desde_ahora_y_calendario_el_historial(self):
+        self.cursor.fetchall.return_value = []
+        ahora = datetime(2026, 10, 22, 17, 30, tzinfo=ZoneInfo('America/Argentina/Buenos_Aires'))
+        with patch('consultas.datetime') as reloj:
+            reloj.now.return_value = ahora
+            r = self.cliente.get('/traer_anuncios?proximas=1', headers=self.headers)
+        self.assertEqual(r.status_code, 200)
+        sql, valores = self.cursor.execute.call_args.args
+        self.assertIn('LIMIT 3', sql)
+        self.assertEqual(valores, (datetime(2026, 10, 22, 17, 30),))
+        r = self.cliente.get('/traer_anuncios', headers=self.headers)
+        self.assertEqual(r.status_code, 200)
+        sql, valores = self.cursor.execute.call_args.args
+        self.assertNotIn('WHERE', sql)
+        self.assertEqual(valores, ())
 
     def test_errores_sql_no_se_filtran_al_cliente(self):
         self.gestor()

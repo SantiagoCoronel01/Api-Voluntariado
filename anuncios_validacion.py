@@ -1,7 +1,11 @@
 from datetime import datetime
 
 MAX_DESCRIPCION = 5000
-TIPOS = {"Medio Ambiente", "Donaciones", "Actividades", "Información"}
+TIPOS = {"Donaciones", "Actividades", "Información"}
+
+
+def normalizar_tipo_evento(tipo):
+    return "Información" if tipo == "Medio Ambiente" else tipo
 
 
 def validar_anuncio(datos, parcial=False):
