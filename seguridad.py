@@ -50,6 +50,8 @@ def instalar_seguridad(app, mysql):
         # Preflight must remain public for the Android WebView and browser.
         if request.method == "OPTIONS" or request.endpoint is None:
             return None
+        if request.endpoint == "listar_anuncios" and request.method in {"GET", "HEAD"}:
+            return None
         if request.endpoint in {"iniciar_sesion", "obtener_imagen"}:
             return None
         if request.endpoint == "insertar_usuario_voluntariado" and not request.headers.get("Authorization"):

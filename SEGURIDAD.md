@@ -1,19 +1,19 @@
 # Sesiones y permisos
 
-La API requiere `Authorization: Bearer <token>` en sus operaciones. El token se entrega al iniciar sesión, está firmado con ItsDangerous y vence a las 12 horas, o a los 30 días con `recordarme: true`. Cada token tiene un identificador aleatorio cuyo hash se guarda en `sesiones_usuario`. El estado, el perfil y la vigencia de esa sesión se consultan en la base en cada solicitud; el cliente no decide sus permisos.
+La consulta de anuncios y calendario (`GET /traer_anuncios`) es pública y no exige cuenta ni token. Crear, editar o eliminar eventos y consultar datos privados requiere `Authorization: Bearer <token>`. El token se entrega al iniciar sesión, está firmado con ItsDangerous y vence a las 12 horas, o a los 30 días con `recordarme: true`. Cada token tiene un identificador aleatorio cuyo hash se guarda en `sesiones_usuario`. El estado, el perfil y la vigencia de esa sesión se consultan en la base en cada solicitud; el cliente no decide sus permisos.
 
 `POST /cerrar_sesion` revoca la sesión actual. Cambiar contraseña, perfil, correo o estado revoca las sesiones del usuario afectado; desactivar y reactivar una cuenta no recupera sus tokens anteriores. Las contraseñas nuevas se guardan como hashes scrypt con sal y se validan también en el servidor. El login convierte una credencial antigua en hash dentro de la misma transacción que emite la sesión, pero debe ejecutarse además la migración masiva para cubrir cuentas que no ingresen.
 
-| Operación | Voluntario | Referente / administrador |
-| --- | --- | --- |
-| Ver anuncios y calendario | Sí | Sí |
-| Crear, editar o borrar anuncios / eventos | No | Sí |
-| Consultar inventario | Sí | Sí |
-| Modificar inventario | No | Sí |
-| Crear una sesión y guardar su asistencia | Sí, como autor autenticado | Sí |
-| Consultar registros de asistencia | Sí | Sí |
-| Corregir o borrar registros guardados | No | Sí |
-| Gestión de usuarios, proyectos y destinatarios | No | Sí |
+| Operación | Visitante sin cuenta | Voluntario | Referente / administrador |
+| --- | --- | --- | --- |
+| Ver anuncios y calendario | Sí | Sí | Sí |
+| Crear, editar o borrar anuncios / eventos | No | No | Sí |
+| Consultar inventario | No | Sí | Sí |
+| Modificar inventario | No | No | Sí |
+| Crear una sesión y guardar su asistencia | No | Sí, como autor autenticado | Sí |
+| Consultar registros de asistencia | No | Sí | Sí |
+| Corregir o borrar registros guardados | No | No | Sí |
+| Gestión de usuarios, proyectos y destinatarios | No | No | Sí |
 
 El voluntario no puede utilizar `guardar_asistencia` para agregar datos a sesiones ajenas ni para reescribir una asistencia ya guardada. Repetir exactamente los mismos DNI y estados devuelve éxito sin duplicarlos, para poder reintentar si se perdió la respuesta. Una solicitud con estados diferentes se rechaza. El autor de sesiones y anuncios se toma del token, aunque el cuerpo envíe otro usuario. No se permite desactivar, eliminar o quitar el rol al último administrador o referente activo; la comprobación bloquea las filas durante la transacción para serializar cambios concurrentes.
 
@@ -35,7 +35,7 @@ Una cuenta deshabilitada o eliminada obtiene HTTP 403 y `codigo: cuenta_deshabil
 
 Si falta `SECRET_KEY`, el servidor responde 503 en login y operaciones privadas, sin recurrir a una clave predeterminada. `/sesion_actual` devuelve únicamente los datos públicos del usuario autenticado y no se almacena en caché. El listado de usuarios tampoco devuelve contraseñas.
 
-El registro público solo acepta perfiles voluntario y referente; ambos quedan pendientes de activación. La creación de administradores requiere un gestor autenticado. Login, registro público, imágenes publicadas y preflight CORS siguen disponibles sin sesión.
+El registro público solo acepta perfiles voluntario y referente; ambos quedan pendientes de activación. La creación de administradores requiere un gestor autenticado. Login, registro público, consulta de anuncios y calendario, imágenes publicadas y preflight CORS siguen disponibles sin sesión.
 
 ## Pruebas sin base real
 

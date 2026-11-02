@@ -40,16 +40,44 @@ class SeguridadTest(unittest.TestCase):
         self.mysql.reset_mock()
         self.headers = {"Authorization": "Bearer " + self.token}
 
+    def test_anuncios_y_calendario_se_consultan_sin_cuenta(self):
+        self.cursor.fetchall.return_value = [
+            (12, "Encuentro", "Actividad abierta", None, None, "2026-11-01 17:30:00", "Actividades", 9)
+        ]
+        for headers in ({}, {"Authorization": "Bearer vencido"}, self.headers):
+            with self.subTest(headers=headers):
+                respuesta = self.cliente.get("/traer_anuncios", headers=headers)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(respuesta.json[0]["titulo"], "Encuentro")
+        self.cursor.fetchone.assert_not_called()
+
+    def test_consulta_publica_no_depende_de_la_clave_de_sesiones(self):
+        self.cursor.fetchall.return_value = []
+        with patch.dict(self.app.config, {"SECRET_KEY": None}):
+            self.assertEqual(self.cliente.get("/traer_anuncios").status_code, 200)
+            self.assertEqual(self.cliente.head("/traer_anuncios").status_code, 200)
+
+    def test_visitante_no_puede_modificar_eventos_ni_leer_datos_privados(self):
+        for metodo, ruta in (
+            ("POST", "/nuevo_anuncio"), ("PUT", "/actualizar_anuncio/12"),
+            ("DELETE", "/eliminar_anuncio/12"), ("GET", "/traer_usuarios_voluntariado"),
+            ("GET", "/traer_destinatarios"), ("GET", "/traer_inventario"),
+            ("GET", "/traer_sesiones"),
+        ):
+            with self.subTest(ruta=ruta):
+                self.assertEqual(self.cliente.open(ruta, method=metodo, json={}).status_code, 401)
+        self.mysql.connection.commit.assert_not_called()
+
     def test_no_basta_enviar_un_id_o_un_rol_para_autenticarse(self):
         for headers in ({}, {"Authorization": "9", "X-Rol": "administrador"}, {"Authorization": "Bearer inventado"}):
             with self.subTest(headers=headers):
-                self.assertEqual(self.cliente.get("/traer_anuncios", headers=headers).status_code, 401)
+                self.assertEqual(self.cliente.get("/sesion_actual", headers=headers).status_code, 401)
 
     def test_una_cuenta_desactivada_pierde_acceso_con_el_mismo_token(self):
         respuesta = self.cliente.get("/sesion_actual", headers=self.headers)
         self.assertEqual(respuesta.status_code, 200)
         self.cursor.fetchone.return_value = (*self.fila[:5], 0, 1)
-        for metodo, ruta in (("GET", "/sesion_actual"), ("GET", "/traer_anuncios"), ("POST", "/nueva_sesion")):
+        for metodo, ruta in (("GET", "/sesion_actual"), ("GET", "/traer_inventario"), ("POST", "/nueva_sesion")):
             with self.subTest(ruta=ruta):
                 respuesta = self.cliente.open(ruta, method=metodo, headers=self.headers, json={})
                 self.assertEqual(respuesta.status_code, 403)

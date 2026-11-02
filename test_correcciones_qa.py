@@ -162,7 +162,7 @@ class CorreccionesQA(SeguridadTest):
     def test_anuncios_vigentes_filtran_desde_hoy_antes_de_paginar(self):
         self.cursor.fetchall.return_value = []
         ahora = datetime(2026, 10, 22, 17, 30, tzinfo=ZoneInfo('America/Argentina/Buenos_Aires'))
-        with patch('consultas.datetime') as reloj:
+        with patch.object(self.modulo.consultas, 'datetime') as reloj:
             reloj.now.return_value = ahora
             r = self.cliente.get('/traer_anuncios?vigentes=1&pagina=2&limite=40', headers=self.headers)
         self.assertEqual(r.status_code, 200)
@@ -183,7 +183,7 @@ class CorreccionesQA(SeguridadTest):
     def test_home_conserva_el_filtro_desde_ahora_y_calendario_el_historial(self):
         self.cursor.fetchall.return_value = []
         ahora = datetime(2026, 10, 22, 17, 30, tzinfo=ZoneInfo('America/Argentina/Buenos_Aires'))
-        with patch('consultas.datetime') as reloj:
+        with patch.object(self.modulo.consultas, 'datetime') as reloj:
             reloj.now.return_value = ahora
             r = self.cliente.get('/traer_anuncios?proximas=1', headers=self.headers)
         self.assertEqual(r.status_code, 200)
