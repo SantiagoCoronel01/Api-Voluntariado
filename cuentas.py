@@ -93,8 +93,8 @@ def modificar(mysql, idusuario, estado=None, eliminar=False):
                 valores.append(texto(datos[campo], campo, 254 if campo == "mail" else 45))
                 campos.append(f"{campo}=%s")
         if "clave" in datos:
-            if not validar_clave(datos["clave"]):
-                raise ValueError("La contraseña debe tener entre 8 y 128 caracteres, mayúscula, minúscula, número y símbolo.")
+            if not isinstance(datos["clave"], str) or not 4 <= len(datos["clave"]) <= 128 or not datos["clave"].strip():
+                raise ValueError("La contraseña provisoria debe tener entre 4 y 128 caracteres.")
             campos.append("clave=%s")
             valores.append(crear_hash(datos["clave"]))
         if "perfil" in datos:
@@ -134,6 +134,47 @@ def modificar(mysql, idusuario, estado=None, eliminar=False):
         mysql.connection.rollback()
         current_app.logger.exception("No se pudo actualizar el usuario")
         return jsonify(resultado="No se pudo actualizar el usuario. Revisá sus datos y registros asociados."), 409
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def cambiar_clave(mysql):
+    cursor = None
+    try:
+        datos = datos_json()
+        if set(datos) != {"clave_actual", "clave_nueva"}:
+            raise ValueError("Solo se permite cambiar la contraseña.")
+        actual, nueva = datos["clave_actual"], datos["clave_nueva"]
+        if not isinstance(actual, str) or not 1 <= len(actual) <= 1024:
+            raise ValueError("Ingresá tu contraseña actual.")
+        if not validar_clave(nueva):
+            raise ValueError("La nueva contraseña debe tener entre 8 y 128 caracteres, mayúscula, minúscula, número y símbolo.")
+        if actual == nueva:
+            raise ValueError("La nueva contraseña debe ser distinta de la actual.")
+        cursor = mysql.connection.cursor()
+        idusuario = g.usuario_actual["idusuario"]
+        cursor.execute("""SELECT u.clave,u.activo,
+            CASE WHEN s.revocada=0 AND s.expira>UTC_TIMESTAMP() THEN 1 ELSE 0 END
+            FROM usuario u JOIN sesiones_usuario s ON s.idusuario=u.idusuario
+            WHERE u.idusuario=%s AND s.token_hash=%s FOR UPDATE""", (idusuario, g.token_hash))
+        fila = cursor.fetchone()
+        if fila is None or fila[1] != 1 or fila[2] != 1:
+            mysql.connection.rollback()
+            return jsonify(codigo="sesion_invalida", resultado="Iniciá sesión nuevamente."), 401
+        if not comprobar_clave(fila[0], actual):
+            mysql.connection.rollback()
+            return jsonify(resultado="La contraseña actual es incorrecta."), 400
+        cursor.execute("UPDATE usuario SET clave=%s WHERE idusuario=%s", (crear_hash(nueva), idusuario))
+        cursor.execute("UPDATE sesiones_usuario SET revocada=1 WHERE idusuario=%s AND token_hash<>%s", (idusuario, g.token_hash))
+        mysql.connection.commit()
+        return jsonify(resultado="Contraseña actualizada correctamente.")
+    except ValueError as error:
+        return jsonify(resultado=str(error)), 400
+    except Exception:
+        mysql.connection.rollback()
+        current_app.logger.exception("No se pudo cambiar la contraseña")
+        return jsonify(resultado="No se pudo cambiar la contraseña. Intentá nuevamente."), 503
     finally:
         if cursor is not None:
             cursor.close()

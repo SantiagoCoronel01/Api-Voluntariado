@@ -11,7 +11,7 @@ LECTURAS_VOLUNTARIO = {
     "traer_inventario_proyecto", "traer_destinatarios_proyecto", "traer_sesiones",
     "traer_sesion", "traer_asistencias",
 }
-ESCRITURAS_VOLUNTARIO = {"nueva_sesion", "guardar_asistencia", "cerrar_sesion"}
+ESCRITURAS_VOLUNTARIO = {"nueva_sesion", "guardar_asistencia", "cerrar_sesion", "cambiar_clave"}
 
 
 def normalizar_rol(valor):

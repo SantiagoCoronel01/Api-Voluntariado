@@ -281,6 +281,12 @@ def iniciar_sesion():
     return cuentas.iniciar(mysql)
 
 
+@app.route("/cambiar_clave", methods=["POST"])
+@cross_origin()
+def cambiar_clave():
+    return cuentas.cambiar_clave(mysql)
+
+
 ####################### GESTION ANUNCIOS ##############################
 
 # =========================================================

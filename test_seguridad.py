@@ -40,6 +40,48 @@ class SeguridadTest(unittest.TestCase):
         self.mysql.reset_mock()
         self.headers = {"Authorization": "Bearer " + self.token}
 
+    def test_cambiar_clave_propia_verifica_y_guarda_hash_sin_modificar_datos(self):
+        from credenciales import crear_hash, comprobar_clave
+        self.cursor.fetchone.side_effect = [self.fila, (crear_hash('1234'), 1, 1)]
+        respuesta = self.cliente.post('/cambiar_clave', headers=self.headers,
+            json={'clave_actual': '1234', 'clave_nueva': 'NuevaSegura9!'})
+        self.assertEqual(respuesta.status_code, 200)
+        actualizacion = next(c for c in self.cursor.execute.call_args_list if 'UPDATE usuario SET' in c.args[0])
+        self.assertEqual(actualizacion.args[0], 'UPDATE usuario SET clave=%s WHERE idusuario=%s')
+        self.assertEqual(actualizacion.args[1][1], 9)
+        self.assertTrue(comprobar_clave(actualizacion.args[1][0], 'NuevaSegura9!'))
+        self.assertTrue(any('token_hash<>%s' in c.args[0] for c in self.cursor.execute.call_args_list))
+        self.mysql.connection.commit.assert_called_once()
+
+    def test_cambiar_clave_rechaza_actual_incorrecta_sin_cerrar_sesion(self):
+        self.cursor.fetchone.side_effect = [self.fila, ('1234', 1, 1)]
+        respuesta = self.cliente.post('/cambiar_clave', headers=self.headers,
+            json={'clave_actual': 'incorrecta', 'clave_nueva': 'NuevaSegura9!'})
+        self.assertEqual(respuesta.status_code, 400)
+        self.mysql.connection.commit.assert_not_called()
+        self.assertFalse(any(c.args[0].startswith('UPDATE') for c in self.cursor.execute.call_args_list))
+
+    def test_cambiar_clave_rechaza_otros_datos_clave_debil_y_visitantes(self):
+        for datos in (
+            {'clave_actual': '1234', 'clave_nueva': '1234'},
+            {'clave_actual': '1234', 'clave_nueva': 'NuevaSegura9!', 'idusuario': 10},
+            {'clave_actual': '1234', 'clave_nueva': 'NuevaSegura9!', 'perfil': 'administrador'},
+        ):
+            with self.subTest(datos=datos):
+                self.assertEqual(self.cliente.post('/cambiar_clave', headers=self.headers, json=datos).status_code, 400)
+        self.assertEqual(self.cliente.post('/cambiar_clave', json={}).status_code, 401)
+        self.mysql.connection.commit.assert_not_called()
+
+    def test_gestor_puede_asignar_clave_provisoria(self):
+        from credenciales import comprobar_clave
+        self.cursor.fetchone.return_value = (*self.fila[:4], 'referente', 1, 1)
+        self.cursor.fetchall.return_value = [(9, 'referente', 1), (10, 'voluntario', 1)]
+        respuesta = self.cliente.put('/actualizar_usuario_voluntariado/10', headers=self.headers, json={'clave': '1234'})
+        self.assertEqual(respuesta.status_code, 200)
+        actualizacion = next(c for c in self.cursor.execute.call_args_list if 'UPDATE usuario SET' in c.args[0])
+        self.assertTrue(comprobar_clave(actualizacion.args[1][0], '1234'))
+        self.assertEqual(actualizacion.args[1][1], 10)
+
     def test_anuncios_y_calendario_se_consultan_sin_cuenta(self):
         self.cursor.fetchall.return_value = [
             (12, "Encuentro", "Actividad abierta", None, None, "2026-11-01 17:30:00", "Actividades", 9)
